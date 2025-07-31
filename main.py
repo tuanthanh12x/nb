@@ -1,0 +1,27 @@
+import sys
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from ui.main_window import TailwindStyleApp
+from db.database import init_db
+
+def main():
+    try:
+        # Initialize database (creates folder + table if needed)
+        init_db()
+
+        app = QApplication(sys.argv)
+        window = TailwindStyleApp()
+        window.show()
+        sys.exit(app.exec_())
+
+    except Exception as e:
+        # Show any startup errors in a user-friendly message box
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setWindowTitle("Application Error")
+        msg.setText("An unexpected error occurred during startup.")
+        msg.setDetailedText(str(e))
+        msg.exec_()
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
