@@ -6,20 +6,41 @@ from PyQt5.QtWidgets import (
     QGridLayout, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtGui import QFont, QColor
-from PyQt5.QtCore import Qt, QDate, QSize
+from PyQt5.QtCore import Qt, QDate, QSize, pyqtSignal
 import qtawesome as qta
 from functools import partial
+
+from db.database import get_db_session, User, create_tables
 from ui.styles import get_global_stylesheet, COLORS
 from ui.log_page import create_log_page
-
+from .login import LoginWindow
+import bcrypt
+from ui.user_management import create_user_management_page
 
 class ModernApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, username):
         super().__init__()
         self.setWindowTitle("📄 Hệ thống Cấp số Văn bản (Offline)")
         self.resize(1280, 800)
         self.setStyleSheet(get_global_stylesheet())
-        self.current_user = "Admin"
+
+        session = get_db_session()
+        try:
+            user_obj = session.query(User).filter(User.username.ilike(username)).first()
+            if user_obj:
+                # Lấy tên để chào mừng (lấy tên cuối)
+                self.current_user = user_obj.full_name.split(' ')[-1] if user_obj.full_name else username.capitalize()
+                # Khởi tạo vai trò và username để dùng trong toàn bộ ứng dụng
+                self.current_user_role = user_obj.role
+                self.current_user_username = user_obj.username
+            else:
+                # Trường hợp dự phòng nếu không tìm thấy user
+                self.current_user = username.capitalize()
+                self.current_user_role = 'guest'  # Mặc định là guest
+                self.current_user_username = username
+        finally:
+            session.close()  # Luôn đóng session sau khi dùng xong
+        # --- KẾT THÚC PHẦN THÊM VÀO ---
 
         # Biến lưu trữ dữ liệu
         self.so_vanban_counter = 1  # Bộ đếm số văn bản
@@ -50,8 +71,14 @@ class ModernApp(QMainWindow):
             ("fa5s.file-alt", "Văn bản Thường"),
             ("fa5s.book", "Sổ quản lý Văn bản"),
             ("fa5s.users-cog", "Phân quyền"),
+            ("fa5s.users-cog", "Quản lý Người dùng"),
             ("fa5s.cogs", "Cài đặt")
         ]
+        final_sidebar_items = []
+        for icon, text in sidebar_items:
+            if text == "Quản lý Người dùng" and self.current_user_role != 'admin':
+                continue
+            final_sidebar_items.append((icon, text))
 
         for icon_name, text in sidebar_items:
             item = QListWidgetItem()
@@ -335,11 +362,25 @@ class ModernApp(QMainWindow):
         return widget
 
 
-
 if __name__ == "__main__":
+    create_tables()
     app = QApplication(sys.argv)
     font = QFont("Segoe UI")
     app.setFont(font)
-    window = ModernApp()
-    window.show()
+
+    # Biến để giữ tham chiếu đến cửa sổ chính, tránh bị xóa
+    main_window = None
+
+    def show_main_app(username):
+        """Hàm để tạo và hiển thị cửa sổ chính sau khi đăng nhập."""
+        global main_window
+        main_window = ModernApp(username=username)
+        main_window.show()
+
+    # Tạo và hiển thị cửa sổ đăng nhập
+    login_window = LoginWindow()
+    # Kết nối tín hiệu đăng nhập thành công với hàm hiển thị cửa sổ chính
+    login_window.login_successful.connect(show_main_app)
+    login_window.show()
+
     sys.exit(app.exec_())
