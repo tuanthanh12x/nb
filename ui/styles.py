@@ -13,6 +13,7 @@ COLORS = {
     "danger": "#EF4444",  # Màu đỏ cho số văn bản
     "accent": "#3B82F6",
 "secondary": "#1E293B",
+    "text_secondary":"#F8FAFC",
 }
 
 

@@ -168,30 +168,84 @@ class ModernApp(QMainWindow):
             item.setSizeHint(QSize(40, 40))
             self.sidebar.addItem(item)
 
-    def _create_guest_home_page(self):
+    def _create_guest_home_page(self) -> QWidget:
+        """Tạo trang chủ dành cho người dùng Guest.
+
+        Giao diện được thiết kế để thân thiện và rõ ràng (phiên bản không dùng icon file).
+        """
         page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(30, 20, 30, 30)
-        layout.setAlignment(Qt.AlignTop)
-        layout.setSpacing(20)
+        main_layout = QVBoxLayout(page)
+        main_layout.setContentsMargins(40, 30, 40, 30)
+        main_layout.setSpacing(25)
+        main_layout.setAlignment(Qt.AlignCenter)  # Căn giữa toàn bộ nội dung
 
-        title = QLabel("🎉 Chào mừng bạn đến với Hệ thống Cấp số Văn bản!")
+        # --- 1. Tiêu đề chính ---
+        # Sử dụng ký tự emoji thay cho icon
+        title = QLabel("🎉 Chào mừng bạn đến Hệ thống Cấp số Văn bản!")
         title.setObjectName("h1")
+        title.setAlignment(Qt.AlignCenter)
 
+        # --- 2. Lời giới thiệu ---
         intro = QLabel(
-            "Bạn đang đăng nhập với quyền **Guest**.\n"
-            "Bạn có thể sử dụng các chức năng:\n"
-            "✔️ Lấy số văn bản Mật\n"
-            "✔️ Lấy số văn bản Thường\n\n"
-            "👉 Nếu bạn là quản trị viên, vui lòng Đăng nhập để sử dụng đầy đủ tính năng."
+            "Bạn đang đăng nhập với quyền <b>Guest</b>. "
+            "Các chức năng có thể sử dụng:"
         )
         intro.setWordWrap(True)
-        intro.setObjectName("placeholder")
+        intro.setAlignment(Qt.AlignCenter)
+        intro.setObjectName("intro_text")
 
-        layout.addWidget(title)
-        layout.addWidget(intro)
-        layout.addStretch()
+        # --- 3. Danh sách chức năng (trực quan hơn) ---
+        features_frame = QFrame()
+        features_frame.setObjectName("features_frame")
+        features_layout = QVBoxLayout(features_frame)
+        features_layout.setContentsMargins(20, 15, 20, 15)
+        features_layout.setSpacing(15)
+
+        # Sử dụng hàm trợ giúp để tránh lặp code
+        features_layout.addWidget(self._create_feature_item("Lấy số văn bản Mật"))
+        features_layout.addWidget(self._create_feature_item("Lấy số văn bản Thường"))
+
+        # --- 4. Nút Kêu gọi Hành động (Call-to-Action) ---
+        cta_label = QLabel("Nếu bạn là quản trị viên, hãy đăng nhập để có đầy đủ tính năng.")
+        cta_label.setAlignment(Qt.AlignCenter)
+        cta_label.setObjectName("placeholder")
+
+        login_button = QPushButton("Đăng nhập Quản trị viên")
+        login_button.setObjectName("cta_button")
+        login_button.setCursor(Qt.PointingHandCursor)
+        login_button.clicked.connect(self._handle_login)
+        # login_button.clicked.connect(self.show_login_dialog) # Kết nối tới hàm xử lý đăng nhập
+
+        # --- Thêm các widget vào layout chính ---
+        main_layout.addWidget(title)
+        main_layout.addSpacing(10)
+        main_layout.addWidget(intro)
+        main_layout.addWidget(features_frame, 0, Qt.AlignCenter)
+        main_layout.addStretch()  # Thêm khoảng trống co dãn
+        main_layout.addWidget(cta_label)
+        main_layout.addWidget(login_button, 0, Qt.AlignCenter)
+
         return page
+
+    def _create_feature_item(self, text: str) -> QWidget:
+        """Hàm trợ giúp tạo một dòng chức năng với ký tự check ✔️."""
+        feature_widget = QWidget()
+        layout = QHBoxLayout(feature_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        # Thay thế icon file bằng một QLabel chứa ký tự
+        icon_label = QLabel("✔️")
+        icon_label.setObjectName("feature_icon")  # Đặt tên để có thể style riêng nếu muốn
+
+        text_label = QLabel(text)
+        text_label.setObjectName("feature_label")
+
+        layout.addWidget(icon_label)
+        layout.addWidget(text_label)
+        layout.addStretch()  # Đẩy nội dung về bên trái
+
+        return feature_widget
 
     def _create_sidebar(self, parent_layout):
         sidebar_container = QWidget()

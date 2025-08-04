@@ -28,7 +28,8 @@ def init_db():
                            TEXT
                            UNIQUE
                            NOT
-                           NULL
+                           NULL,
+                           ma_viet_tat TEXT UNIQUE NOT NULL
                        )
                        """)
 

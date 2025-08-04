@@ -53,10 +53,38 @@ def validate_user(username, password):
         return True, result[0]  # trả về True và vai trò
     return False, None
 
+
 def get_all_users():
-    conn = get_conn()
-    cursor = conn.cursor()
-    cursor.execute("SELECT username, role FROM users ORDER BY username")
-    users = cursor.fetchall()
-    conn.close()
-    return [{"username": u[0], "role": u[1]} for u in users]
+    """
+    SỬA LỖI: Lấy cả ID, username và role của tất cả người dùng.
+    Trả về danh sách các dictionary, mỗi dictionary chứa đủ 'id', 'username', 'role'.
+    """
+    users_list = []
+    # Thêm 'id' vào câu lệnh SELECT
+    sql = "SELECT id, username, role FROM users ORDER BY username"
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql)
+                users_data = cursor.fetchall()
+                for u in users_data:
+                    users_list.append({"id": u[0], "username": u[1], "role": u[2]})
+    except Exception as e:
+        print(f"Lỗi khi lấy danh sách người dùng: {e}")
+
+    return users_list
+def update_user_password(user_id, new_password):
+    """Cập nhật mật khẩu mới cho người dùng theo ID."""
+    try:
+        conn = get_conn()
+        cursor = conn.cursor()
+        hashed_pw = hash_password(new_password)
+        cursor.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (hashed_pw, user_id)
+        )
+        conn.commit()
+        conn.close()
+        return True, "Cập nhật mật khẩu thành công."
+    except Exception as e:
+        return False, f"Lỗi khi cập nhật mật khẩu: {e}"
