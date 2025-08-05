@@ -22,6 +22,7 @@ class RichTextEditor(QWidget):
     """
     Một Widget soạn thảo văn bản hiện đại với thanh công cụ định dạng.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.init_ui()
@@ -50,15 +51,22 @@ class RichTextEditor(QWidget):
         self.toolbar.addActions([self.action_bold, self.action_italic, self.action_underline])
         self.toolbar.addSeparator()
 
-        self.action_align_left = self._create_action("fa5s.align-left", "Căn trái", True, lambda: self.editor.setAlignment(Qt.AlignLeft))
-        self.action_align_center = self._create_action("fa5s.align-center", "Căn giữa", True, lambda: self.editor.setAlignment(Qt.AlignCenter))
-        self.action_align_right = self._create_action("fa5s.align-right", "Căn phải", True, lambda: self.editor.setAlignment(Qt.AlignRight))
-        self.action_align_justify = self._create_action("fa5s.align-justify", "Căn đều", True, lambda: self.editor.setAlignment(Qt.AlignJustify))
-        self.toolbar.addActions([self.action_align_left, self.action_align_center, self.action_align_right, self.action_align_justify])
+        self.action_align_left = self._create_action("fa5s.align-left", "Căn trái", True,
+                                                     lambda: self.editor.setAlignment(Qt.AlignLeft))
+        self.action_align_center = self._create_action("fa5s.align-center", "Căn giữa", True,
+                                                       lambda: self.editor.setAlignment(Qt.AlignCenter))
+        self.action_align_right = self._create_action("fa5s.align-right", "Căn phải", True,
+                                                      lambda: self.editor.setAlignment(Qt.AlignRight))
+        self.action_align_justify = self._create_action("fa5s.align-justify", "Căn đều", True,
+                                                        lambda: self.editor.setAlignment(Qt.AlignJustify))
+        self.toolbar.addActions(
+            [self.action_align_left, self.action_align_center, self.action_align_right, self.action_align_justify])
         self.toolbar.addSeparator()
 
-        self.action_bullet_list = self._create_action("fa5s.list-ul", "Danh sách (gạch đầu dòng)", False, self.insert_bullet_list)
-        self.action_number_list = self._create_action("fa5s.list-ol", "Danh sách (số thứ tự)", False, self.insert_number_list)
+        self.action_bullet_list = self._create_action("fa5s.list-ul", "Danh sách (gạch đầu dòng)", False,
+                                                      self.insert_bullet_list)
+        self.action_number_list = self._create_action("fa5s.list-ol", "Danh sách (số thứ tự)", False,
+                                                      self.insert_number_list)
         self.toolbar.addActions([self.action_bullet_list, self.action_number_list])
         self.toolbar.addSeparator()
 
@@ -139,11 +147,20 @@ class RichTextEditor(QWidget):
         self.action_align_right.setChecked(align == Qt.AlignRight)
         self.action_align_justify.setChecked(align == Qt.AlignJustify)
 
-    def toHtml(self): return self.editor.toHtml()
-    def setHtml(self, html_content): self.editor.setHtml(html_content)
-    def toPlainText(self): return self.editor.toPlainText()
-    def clear(self): self.editor.clear()
-    def setPlaceholderText(self, text): self.editor.setPlaceholderText(text)
+    def toHtml(self):
+        return self.editor.toHtml()
+
+    def setHtml(self, html_content):
+        self.editor.setHtml(html_content)
+
+    def toPlainText(self):
+        return self.editor.toPlainText()
+
+    def clear(self):
+        self.editor.clear()
+
+    def setPlaceholderText(self, text):
+        self.editor.setPlaceholderText(text)
 
 
 # ===================================================================
@@ -225,7 +242,6 @@ def create_document_log_page(main_window):
     layout.setContentsMargins(30, 20, 30, 30)
     layout.setSpacing(15)
 
-    # MỚI: Bố cục cho tiêu đề và nút Tải lại
     title_layout = QHBoxLayout()
     title = QLabel("Sổ quản lý Văn bản 📒")
     title.setObjectName("h2")
@@ -237,7 +253,6 @@ def create_document_log_page(main_window):
     title_layout.addWidget(reload_button)
     layout.addLayout(title_layout)
 
-    # Khung chứa bộ lọc
     filter_frame = QFrame()
     filter_frame.setObjectName("formCard")
     filter_layout = QGridLayout(filter_frame)
@@ -267,7 +282,6 @@ def create_document_log_page(main_window):
     filter_layout.addWidget(clear_button, 2, 3, 1, 3)
     layout.addWidget(filter_frame)
 
-    # Bảng dữ liệu
     main_window.log_table = QTableWidget()
     headers = ["ID", "Số VB", "Ngày ban hành", "Loại VB", "Trích yếu", "Lãnh đạo ký", "ĐV Soạn thảo", "Độ mật",
                "Trạng thái", "Hành động"]
@@ -284,16 +298,15 @@ def create_document_log_page(main_window):
     main_window.log_table.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeToContents)
     layout.addWidget(main_window.log_table)
 
-    # Kết nối tín hiệu
     filter_button.clicked.connect(partial(_load_documents_to_log, main_window))
     clear_button.clicked.connect(partial(_clear_filters, main_window))
     main_window.log_search_input.returnPressed.connect(partial(_load_documents_to_log, main_window))
-    reload_button.clicked.connect(partial(_load_documents_to_log, main_window)) # MỚI: kết nối nút tải lại
+    reload_button.clicked.connect(partial(_load_documents_to_log, main_window))
     return page
 
 
 # ===================================================================
-# SECTION 2: CÁC HÀM LOGIC VÀ XỬ LÝ DỮ LIỆU
+# SECTION 2: CÁC HÀM LOGIC VÀ XỬ LÝ DỮ LIỆU (ĐÃ SỬA CHO SQLITE)
 # ===================================================================
 
 def setup_document_management_logic(main_window):
@@ -301,61 +314,66 @@ def setup_document_management_logic(main_window):
     _populate_filter_combos(main_window)
     _load_documents_to_log(main_window)
 
+
 def _populate_form_combos(main_window):
     try:
         with get_conn() as conn:
-            with conn.cursor() as cursor:
-                db_map = {
-                    'loai_van_ban': "SELECT id, ten FROM loai_van_ban ORDER BY ten",
-                    'do_mat': "SELECT id, ten FROM do_mat ORDER BY id",
-                    'lanh_dao': "SELECT id, ten FROM lanh_dao ORDER BY ten",
-                    'don_vi': "SELECT id, ten FROM don_vi ORDER BY ten",
-                    'noi_nhan': "SELECT id, ten FROM noi_nhan ORDER BY ten",
+            cursor = conn.cursor()
+            db_map = {
+                'loai_van_ban': "SELECT id, ten FROM loai_van_ban ORDER BY ten",
+                'do_mat': "SELECT id, ten FROM do_mat ORDER BY id",
+                'lanh_dao': "SELECT id, ten FROM lanh_dao ORDER BY ten",
+                'don_vi': "SELECT id, ten FROM don_vi ORDER BY ten",
+                'noi_nhan': "SELECT id, ten FROM noi_nhan ORDER BY ten",
+            }
+            for page_id in ['mat', 'thuong']:
+                if page_id not in main_window.form_widgets: continue
+                widgets = main_window.form_widgets[page_id]['widgets']
+                widget_query_map = {
+                    'loai_van_ban': (db_map['loai_van_ban'], "--- Chọn loại văn bản ---"),
+                    'do_mat': (db_map['do_mat'], "--- Chọn độ mật ---"),
+                    'lanh_dao_ky': (db_map['lanh_dao'], "--- Chọn lãnh đạo ---"),
+                    'don_vi_soan_thao': (db_map['don_vi'], "--- Chọn đơn vị soạn thảo ---"),
+                    'don_vi_luu_tru': (db_map['don_vi'], "--- Chọn đơn vị lưu trữ ---"),
+                    'noi_nhan': (db_map['noi_nhan'], None),
                 }
-                for page_id in ['mat', 'thuong']:
-                    if page_id not in main_window.form_widgets: continue
-                    widgets = main_window.form_widgets[page_id]['widgets']
-                    widget_query_map = {
-                        'loai_van_ban': (db_map['loai_van_ban'], "--- Chọn loại văn bản ---"),
-                        'do_mat': (db_map['do_mat'], "--- Chọn độ mật ---"),
-                        'lanh_dao_ky': (db_map['lanh_dao'], "--- Chọn lãnh đạo ---"),
-                        'don_vi_soan_thao': (db_map['don_vi'], "--- Chọn đơn vị soạn thảo ---"),
-                        'don_vi_luu_tru': (db_map['don_vi'], "--- Chọn đơn vị lưu trữ ---"),
-                        'noi_nhan': (db_map['noi_nhan'], None),
-                    }
-                    for name, widget in widgets.items():
-                        if name in widget_query_map:
-                            query, placeholder = widget_query_map[name]
-                            cursor.execute(query)
-                            records = cursor.fetchall()
-                            widget.clear()
-                            if isinstance(widget, QComboBox):
-                                if placeholder: widget.addItem(placeholder, -1)
-                                for db_id, db_ten in records: widget.addItem(db_ten, db_id)
-                            elif isinstance(widget, QListWidget):
-                                for db_id, db_ten in records:
-                                    item = QListWidgetItem(db_ten)
-                                    item.setData(Qt.UserRole, db_id)
-                                    widget.addItem(item)
+                for name, widget in widgets.items():
+                    if name in widget_query_map:
+                        query, placeholder = widget_query_map[name]
+                        cursor.execute(query)
+                        records = cursor.fetchall()
+                        widget.clear()
+                        if isinstance(widget, QComboBox):
+                            if placeholder: widget.addItem(placeholder, -1)
+                            for db_id, db_ten in records: widget.addItem(db_ten, db_id)
+                        elif isinstance(widget, QListWidget):
+                            for db_id, db_ten in records:
+                                item = QListWidgetItem(db_ten)
+                                item.setData(Qt.UserRole, db_id)
+                                widget.addItem(item)
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi Database", f"Không thể tải dữ liệu cho form:\n{e}")
+
 
 def _populate_filter_combos(main_window):
     try:
         with get_conn() as conn:
-            with conn.cursor() as cursor:
-                main_window.log_filter_type_combo.addItem("Tất cả loại VB", -1)
-                cursor.execute("SELECT id, ten FROM loai_van_ban ORDER BY ten")
-                for doc_id, ten in cursor.fetchall(): main_window.log_filter_type_combo.addItem(ten, doc_id)
-                main_window.log_filter_unit_combo.addItem("Tất cả đơn vị", -1)
-                cursor.execute("SELECT id, ten FROM don_vi ORDER BY ten")
-                for unit_id, ten in cursor.fetchall(): main_window.log_filter_unit_combo.addItem(ten, unit_id)
+            cursor = conn.cursor()
+            main_window.log_filter_type_combo.addItem("Tất cả loại VB", -1)
+            cursor.execute("SELECT id, ten FROM loai_van_ban ORDER BY ten")
+            for doc_id, ten in cursor.fetchall(): main_window.log_filter_type_combo.addItem(ten, doc_id)
+            main_window.log_filter_unit_combo.addItem("Tất cả đơn vị", -1)
+            cursor.execute("SELECT id, ten FROM don_vi ORDER BY ten")
+            for unit_id, ten in cursor.fetchall(): main_window.log_filter_unit_combo.addItem(ten, unit_id)
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi Database", f"Không thể tải dữ liệu cho bộ lọc:\n{e}")
 
+
 def _validate_form(main_window, page_id):
     widgets = main_window.form_widgets[page_id]['widgets']
-    field_display_names = {'loai_van_ban': 'Loại văn bản', 'trich_yeu': 'Trích yếu nội dung', 'do_mat': 'Độ Mật','lanh_dao_ky': 'Lãnh đạo ký', 'don_vi_soan_thao': 'Đơn vị soạn thảo','noi_nhan': 'Nơi nhận', 'don_vi_luu_tru': 'Đơn vị lưu trữ',}
+    field_display_names = {'loai_van_ban': 'Loại văn bản', 'trich_yeu': 'Trích yếu nội dung', 'do_mat': 'Độ Mật',
+                           'lanh_dao_ky': 'Lãnh đạo ký', 'don_vi_soan_thao': 'Đơn vị soạn thảo', 'noi_nhan': 'Nơi nhận',
+                           'don_vi_luu_tru': 'Đơn vị lưu trữ', }
     for name, widget in widgets.items():
         if name in ['so_luong_ban'] or (name == 'do_mat' and page_id != 'mat'): continue
         is_empty = False
@@ -372,6 +390,7 @@ def _validate_form(main_window, page_id):
             return False, f"Vui lòng điền hoặc chọn thông tin cho mục:\n\n'{field_name}'"
     return True, None
 
+
 def _submit_document(main_window, page_id):
     is_valid, error_message = _validate_form(main_window, page_id)
     if not is_valid:
@@ -380,36 +399,72 @@ def _submit_document(main_window, page_id):
     widgets = main_window.form_widgets[page_id]['widgets']
     try:
         with get_conn() as conn:
-            with conn.cursor() as cursor:
-                current_year = QDate.currentDate().year()
-                cursor.execute("SELECT ma_viet_tat FROM loai_van_ban WHERE id = %s",(widgets['loai_van_ban'].currentData(),))
-                doc_type_code = cursor.fetchone()[0]
-                don_vi_soan_thao_id = widgets['don_vi_soan_thao'].currentData()
-                cursor.execute("SELECT ma_viet_tat FROM don_vi WHERE id = %s", (don_vi_soan_thao_id,))
-                unit_code = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM documents WHERE EXTRACT(YEAR FROM ngay_ban_hanh) = %s",(current_year,))
-                so_hien_tai = cursor.fetchone()[0] + 1
-                so_van_ban = f"{so_hien_tai:03d}/{doc_type_code}-{unit_code}"
-                data = {'loai_so': page_id, 'so_van_ban': so_van_ban, 'ngay_ban_hanh': QDate.currentDate().toPyDate(), 'trich_yeu': widgets['trich_yeu'].toHtml(), 'loai_van_ban_id': widgets['loai_van_ban'].currentData(), 'do_mat_id': widgets['do_mat'].currentData() if page_id == 'mat' else None, 'lanh_dao_id': widgets['lanh_dao_ky'].currentData(), 'don_vi_soan_thao_id': don_vi_soan_thao_id, 'so_luong_ban': int(widgets['so_luong_ban'].text()) if widgets['so_luong_ban'].text().isdigit() else None, 'don_vi_luu_tru_id': widgets['don_vi_luu_tru'].currentData(),}
-                insert_query = """INSERT INTO documents (loai_so, so_van_ban, ngay_ban_hanh, trich_yeu, loai_van_ban_id,do_mat_id, lanh_dao_id, don_vi_soan_thao_id, so_luong_ban,don_vi_luu_tru_id) VALUES (%(loai_so)s, %(so_van_ban)s, %(ngay_ban_hanh)s, %(trich_yeu)s, %(loai_van_ban_id)s,%(do_mat_id)s, %(lanh_dao_id)s, %(don_vi_soan_thao_id)s, %(so_luong_ban)s,%(don_vi_luu_tru_id)s) RETURNING id;"""
-                cursor.execute(insert_query, data)
-                new_document_id = cursor.fetchone()[0]
-                selected_noi_nhan_items = widgets['noi_nhan'].selectedItems()
-                noi_nhan_ids = [item.data(Qt.UserRole) for item in selected_noi_nhan_items]
-                if noi_nhan_ids:
-                    args_str = ','.join(cursor.mogrify("(%s,%s)", (new_document_id, nid)).decode('utf-8') for nid in noi_nhan_ids)
-                    cursor.execute("INSERT INTO document_noi_nhan (document_id, noi_nhan_id) VALUES " + args_str)
-                result_label = main_window.form_widgets[page_id]['result_label']
-                ngay_thang_nam = QDate.currentDate().toString("dd/MM/yyyy")
-                result_label.setText(f"Cấp số thành công: {so_van_ban} ngày {ngay_thang_nam}")
-                for widget in widgets.values():
-                    if isinstance(widget, (QLineEdit, QTextEdit, RichTextEditor)): widget.clear()
-                    elif isinstance(widget, QComboBox): widget.setCurrentIndex(0)
-                    elif isinstance(widget, QListWidget): widget.clearSelection()
-                _load_documents_to_log(main_window)
-                update_document_stats(main_window)
+            cursor = conn.cursor()
+            current_year = QDate.currentDate().year()
+
+            # Sử dụng '?' làm placeholder
+            cursor.execute("SELECT ma_viet_tat FROM loai_van_ban WHERE id = ?",
+                           (widgets['loai_van_ban'].currentData(),))
+            doc_type_code = cursor.fetchone()[0]
+
+            don_vi_soan_thao_id = widgets['don_vi_soan_thao'].currentData()
+            cursor.execute("SELECT ma_viet_tat FROM don_vi WHERE id = ?", (don_vi_soan_thao_id,))
+            unit_code = cursor.fetchone()[0]
+
+            # Sử dụng STRFTIME cho SQLite
+            cursor.execute("SELECT COUNT(*) FROM documents WHERE STRFTIME('%Y', ngay_ban_hanh) = ?",
+                           (str(current_year),))
+            so_hien_tai = cursor.fetchone()[0] + 1
+            so_van_ban = f"{so_hien_tai:03d}/{doc_type_code}-{unit_code}"
+
+            # Chuyển dữ liệu sang tuple để truyền vào câu lệnh
+            data_tuple = (
+                page_id, so_van_ban, QDate.currentDate().toString("yyyy-MM-dd"),
+                widgets['trich_yeu'].toHtml(), widgets['loai_van_ban'].currentData(),
+                widgets['do_mat'].currentData() if page_id == 'mat' else None,
+                widgets['lanh_dao_ky'].currentData(), don_vi_soan_thao_id,
+                int(widgets['so_luong_ban'].text()) if widgets['so_luong_ban'].text().isdigit() else None,
+                widgets['don_vi_luu_tru'].currentData(), 'Chờ xác nhận'
+            )
+
+            insert_query = """
+                           INSERT INTO documents (loai_so, so_van_ban, ngay_ban_hanh, trich_yeu, loai_van_ban_id,
+                                                  do_mat_id, lanh_dao_id, don_vi_soan_thao_id, so_luong_ban,
+                                                  don_vi_luu_tru_id, trang_thai)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+                           """
+            cursor.execute(insert_query, data_tuple)
+
+            # Lấy ID vừa chèn bằng cursor.lastrowid
+            new_document_id = cursor.lastrowid
+
+            # Sử dụng executemany để chèn nhiều bản ghi hiệu quả
+            selected_noi_nhan_items = widgets['noi_nhan'].selectedItems()
+            noi_nhan_data = [(new_document_id, item.data(Qt.UserRole)) for item in selected_noi_nhan_items]
+            if noi_nhan_data:
+                cursor.executemany("INSERT INTO document_noi_nhan (document_id, noi_nhan_id) VALUES (?, ?)",
+                                   noi_nhan_data)
+
+            conn.commit()
+
+            result_label = main_window.form_widgets[page_id]['result_label']
+            ngay_thang_nam = QDate.currentDate().toString("dd/MM/yyyy")
+            result_label.setText(f"Cấp số thành công: {so_van_ban} ngày {ngay_thang_nam}")
+
+            for widget in widgets.values():
+                if isinstance(widget, (QLineEdit, QTextEdit, RichTextEditor)):
+                    widget.clear()
+                elif isinstance(widget, QComboBox):
+                    widget.setCurrentIndex(0)
+                elif isinstance(widget, QListWidget):
+                    widget.clearSelection()
+
+            _load_documents_to_log(main_window)
+            update_document_stats(main_window)
+
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi khi cấp số", f"Đã xảy ra lỗi:\n{e}")
+
 
 def _show_document_content_dialog(parent_window, html_content, document_number):
     dialog = QDialog(parent_window)
@@ -432,101 +487,94 @@ def _load_documents_to_log(main_window):
         search_term = main_window.log_search_input.text().strip()
         type_id = main_window.log_filter_type_combo.currentData()
         unit_id = main_window.log_filter_unit_combo.currentData()
-        status_filter = main_window.log_filter_status_combo.currentText()  # Đổi tên biến để rõ ràng hơn
+        status_filter = main_window.log_filter_status_combo.currentText()
 
         with get_conn() as conn:
-            with conn.cursor() as cursor:
-                base_query = """
-                             SELECT d.id, \
-                                    d.so_van_ban, \
-                                    d.ngay_ban_hanh, \
-                                    lvb.ten as loai_van_ban,
-                                    d.trich_yeu, \
-                                    ld.ten  as lanh_dao, \
-                                    dv.ten  as don_vi,
-                                    dm.ten  as do_mat, \
-                                    d.trang_thai
-                             FROM documents d
-                                      LEFT JOIN loai_van_ban lvb ON d.loai_van_ban_id = lvb.id
-                                      LEFT JOIN lanh_dao ld ON d.lanh_dao_id = ld.id
-                                      LEFT JOIN don_vi dv ON d.don_vi_soan_thao_id = dv.id
-                                      LEFT JOIN do_mat dm ON d.do_mat_id = dm.id \
-                             """
-                conditions, params = [], []
+            cursor = conn.cursor()
+            base_query = """
+                         SELECT d.id, \
+                                d.so_van_ban, \
+                                d.ngay_ban_hanh, \
+                                lvb.ten as loai_van_ban,
+                                d.trich_yeu, \
+                                ld.ten  as lanh_dao, \
+                                dv.ten  as don_vi,
+                                dm.ten  as do_mat, \
+                                d.trang_thai
+                         FROM documents d
+                                  LEFT JOIN loai_van_ban lvb ON d.loai_van_ban_id = lvb.id
+                                  LEFT JOIN lanh_dao ld ON d.lanh_dao_id = ld.id
+                                  LEFT JOIN don_vi dv ON d.don_vi_soan_thao_id = dv.id
+                                  LEFT JOIN do_mat dm ON d.do_mat_id = dm.id \
+                         """
+            conditions, params = [], []
 
-                if search_term:
-                    conditions.append("(d.so_van_ban ILIKE %s OR d.trich_yeu ILIKE %s)")
-                    params.extend([f"%{search_term}%", f"%{search_term}%"])
-                if type_id != -1:
-                    conditions.append("d.loai_van_ban_id = %s")
-                    params.append(type_id)
-                if unit_id != -1:
-                    conditions.append("d.don_vi_soan_thao_id = %s")
-                    params.append(unit_id)
-                # Sửa logic lọc trạng thái để dùng giá trị từ CSDL
-                if status_filter != "Tất cả trạng thái":
-                    conditions.append("d.trang_thai = %s")
-                    params.append(status_filter)
+            if search_term:
+                # Sử dụng LOWER() cho tìm kiếm không phân biệt hoa thường
+                conditions.append("(LOWER(d.so_van_ban) LIKE LOWER(?) OR LOWER(d.trich_yeu) LIKE LOWER(?))")
+                params.extend([f"%{search_term}%", f"%{search_term}%"])
+            if type_id != -1:
+                conditions.append("d.loai_van_ban_id = ?")
+                params.append(type_id)
+            if unit_id != -1:
+                conditions.append("d.don_vi_soan_thao_id = ?")
+                params.append(unit_id)
+            if status_filter != "Tất cả trạng thái":
+                conditions.append("d.trang_thai = ?")
+                params.append(status_filter)
 
-                if conditions: base_query += " WHERE " + " AND ".join(conditions)
-                base_query += " ORDER BY d.ngay_ban_hanh DESC, d.id DESC"
+            if conditions: base_query += " WHERE " + " AND ".join(conditions)
+            base_query += " ORDER BY d.ngay_ban_hanh DESC, d.id DESC"
 
-                cursor.execute(base_query, tuple(params))
-                records = cursor.fetchall()
-                main_window.log_table.setRowCount(0)
+            cursor.execute(base_query, tuple(params))
+            records = cursor.fetchall()
+            main_window.log_table.setRowCount(0)
 
-                for row_index, row_data in enumerate(records):
-                    main_window.log_table.insertRow(row_index)
+            for row_index, row_data in enumerate(records):
+                main_window.log_table.insertRow(row_index)
+                document_id, document_number, trich_yeu_html, document_status = row_data[0], row_data[1], row_data[4], \
+                row_data[8]
+                is_pending = (document_status == 'Chờ xác nhận')
 
-                    document_id, document_number, trich_yeu_html, document_status = row_data[0], row_data[1], row_data[
-                        4], row_data[8]
-                    is_pending = (document_status == 'Chờ xác nhận')
+                row_color = QColor("red") if is_pending else QColor(Qt.black)
+                for col_index, col_data in enumerate(row_data):
+                    if col_index in [4, 9]: continue
+                    item = QTableWidgetItem(str(col_data) if col_data is not None else "")
+                    item.setForeground(row_color)
+                    main_window.log_table.setItem(row_index, col_index, item)
 
-                    # --- BẮT ĐẦU PHẦN TÔ MÀU ---
-                    row_color = QColor("red") if is_pending else QColor(Qt.black)
-                    for col_index, col_data in enumerate(row_data):
-                        if col_index in [4, 9]: continue  # Bỏ qua cột trích yếu và cột hành động
-                        item = QTableWidgetItem(str(col_data) if col_data is not None else "")
-                        item.setForeground(row_color)  # Đặt màu cho chữ
-                        main_window.log_table.setItem(row_index, col_index, item)
-                    # --- KẾT THÚC PHẦN TÔ MÀU ---
+                action_widget = QWidget()
+                action_layout = QHBoxLayout(action_widget)
+                action_layout.setContentsMargins(5, 0, 5, 0)
+                action_layout.setSpacing(5)
+                action_layout.setAlignment(Qt.AlignCenter)
 
-                    # --- BẮT ĐẦU PHẦN THÊM NÚT HÀNH ĐỘNG ---
-                    action_widget = QWidget()
-                    action_layout = QHBoxLayout(action_widget)
-                    action_layout.setContentsMargins(5, 0, 5, 0)
-                    action_layout.setSpacing(5)
-                    action_layout.setAlignment(Qt.AlignCenter)
+                view_button = QPushButton(qta.icon("fa5s.eye", color='#007bff'), " Xem")
+                view_button.setCursor(Qt.PointingHandCursor)
+                view_button.setToolTip("Xem trích yếu nội dung")
+                view_button.clicked.connect(
+                    partial(_show_document_content_dialog, main_window, trich_yeu_html, document_number))
+                action_layout.addWidget(view_button)
 
-                    # Nút Xem (luôn hiển thị)
-                    view_button = QPushButton(qta.icon("fa5s.eye", color='#007bff'), " Xem")
-                    view_button.setCursor(Qt.PointingHandCursor)
-                    view_button.setToolTip("Xem trích yếu nội dung")
-                    view_button.clicked.connect(
-                        partial(_show_document_content_dialog, main_window, trich_yeu_html, document_number))
-                    action_layout.addWidget(view_button)
+                if is_pending:
+                    confirm_button = QPushButton(qta.icon("fa5s.check-circle", color='green'), " Xác nhận")
+                    confirm_button.setCursor(Qt.PointingHandCursor)
+                    confirm_button.setToolTip("Chuyển trạng thái sang 'Đã xác nhận'")
+                    confirm_button.clicked.connect(
+                        partial(_update_document_status, main_window, document_id, 'Đã xác nhận'))
+                    action_layout.addWidget(confirm_button)
 
-                    # Nút Xác nhận và Hủy (chỉ hiển thị khi chờ xác nhận)
-                    if is_pending:
-                        confirm_button = QPushButton(qta.icon("fa5s.check-circle", color='green'), " Xác nhận")
-                        confirm_button.setCursor(Qt.PointingHandCursor)
-                        confirm_button.setToolTip("Chuyển trạng thái sang 'Đã xác nhận'")
-                        confirm_button.clicked.connect(
-                            partial(_update_document_status, main_window, document_id, 'Đã xác nhận'))
-                        action_layout.addWidget(confirm_button)
+                    cancel_button = QPushButton(qta.icon("fa5s.times-circle", color='red'), " Hủy")
+                    cancel_button.setCursor(Qt.PointingHandCursor)
+                    cancel_button.setToolTip("Chuyển trạng thái sang 'Đã hủy'")
+                    cancel_button.clicked.connect(partial(_update_document_status, main_window, document_id, 'Đã hủy'))
+                    action_layout.addWidget(cancel_button)
 
-                        cancel_button = QPushButton(qta.icon("fa5s.times-circle", color='red'), " Hủy")
-                        cancel_button.setCursor(Qt.PointingHandCursor)
-                        cancel_button.setToolTip("Chuyển trạng thái sang 'Đã hủy'")
-                        cancel_button.clicked.connect(
-                            partial(_update_document_status, main_window, document_id, 'Đã hủy'))
-                        action_layout.addWidget(cancel_button)
-
-                    main_window.log_table.setCellWidget(row_index, 9, action_widget)
-                    # --- KẾT THÚC PHẦN THÊM NÚT HÀNH ĐỘNG ---
+                main_window.log_table.setCellWidget(row_index, 9, action_widget)
 
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi Database", f"Không thể tải danh sách văn bản:\n{e}")
+
 
 def _clear_filters(main_window):
     main_window.log_search_input.clear()
@@ -535,30 +583,31 @@ def _clear_filters(main_window):
     main_window.log_filter_status_combo.setCurrentIndex(0)
     _load_documents_to_log(main_window)
 
+
 def update_document_stats(main_window):
+    # Hàm này đã tương thích, chỉ cần đảm bảo được gọi đúng lúc
     if main_window.current_user_role != "Admin" or main_window.total_docs_label is None: return
     try:
         with get_conn() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT COUNT(*) FROM documents")
-                total = cursor.fetchone()[0]
-                cursor.execute("SELECT trang_thai, COUNT(*) FROM documents GROUP BY trang_thai")
-                stats = dict(cursor.fetchall())
-                confirmed = stats.get('Đã xác nhận', 0)
-                pending = stats.get('Chờ xác nhận', 0)
-                canceled = stats.get('Đã hủy', 0)
-                main_window.total_docs_label.setText(str(total))
-                main_window.confirmed_docs_label.setText(str(confirmed))
-                main_window.pending_docs_label.setText(str(pending))
-                main_window.canceled_docs_label.setText(str(canceled))
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM documents")
+            total = cursor.fetchone()[0]
+            cursor.execute("SELECT trang_thai, COUNT(*) FROM documents GROUP BY trang_thai")
+            stats = dict(cursor.fetchall())
+            confirmed = stats.get('Đã xác nhận', 0)
+            pending = stats.get('Chờ xác nhận', 0)
+            canceled = stats.get('Đã hủy', 0)
+            main_window.total_docs_label.setText(str(total))
+            main_window.confirmed_docs_label.setText(str(confirmed))
+            main_window.pending_docs_label.setText(str(pending))
+            main_window.canceled_docs_label.setText(str(canceled))
     except Exception as e:
         print(f"Lỗi khi cập nhật thống kê: {e}")
 
 
 def _update_document_status(main_window, document_id, new_status):
     """
-    Hàm để cập nhật trạng thái của văn bản trong CSDL.
-    Hiển thị hộp thoại xác nhận trước khi thực hiện.
+    Hàm để cập nhật trạng thái của văn bản trong CSDL SQLite.
     """
     action_verb = "xác nhận" if new_status == "Đã xác nhận" else "hủy"
     question_msg = f"Bạn có chắc chắn muốn {action_verb} văn bản có ID {document_id} không?"
@@ -569,12 +618,12 @@ def _update_document_status(main_window, document_id, new_status):
     if reply == QMessageBox.Yes:
         try:
             with get_conn() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("UPDATE documents SET trang_thai = %s WHERE id = %s", (new_status, document_id))
+                cursor = conn.cursor()
+                # Sử dụng '?' làm placeholder
+                cursor.execute("UPDATE documents SET trang_thai = ? WHERE id = ?", (new_status, document_id))
+                conn.commit()
 
             QMessageBox.information(main_window, "Thành công", f"Đã {action_verb} văn bản thành công.")
-
-            # Tải lại danh sách và cập nhật thống kê để hiển thị thay đổi
             _load_documents_to_log(main_window)
             update_document_stats(main_window)
 

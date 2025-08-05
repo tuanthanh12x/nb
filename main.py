@@ -1,12 +1,14 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMessageBox
+
+from db.db import initialize_database_if_needed
 from ui.main_window import  ModernApp
-from db.database import init_db
+# from db.database import init_db
 
 def main():
     try:
         # Initialize database (creates folder + table if needed)
-        init_db()
+        initialize_database_if_needed()
 
         app = QApplication(sys.argv)
         # window = TailwindStyleApp()

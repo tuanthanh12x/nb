@@ -39,9 +39,9 @@ def create_category_management_page():
     main_layout.addWidget(panels_stack)
 
     # --- Định nghĩa các danh mục cần quản lý ---
-    # (Tên bảng DB, Tên hiển thị, Tên cột chính, [Tên cột phụ])
+    # (Tên bảng DB, Tên hiển thị, [Danh sách tên các cột])
     categories = [
-        ("don_vi", "Đơn vị", ["id", "ten"]),
+        ("don_vi", "Đơn vị", ["id", "ten", "ma_viet_tat"]),
         ("lanh_dao", "Lãnh đạo", ["id", "ten", "chuc_vu"]),
         ("loai_van_ban", "Loại văn bản", ["id", "ten", "ma_viet_tat"]),
         ("do_mat", "Độ mật", ["id", "ten"]),
@@ -64,7 +64,7 @@ def create_category_management_page():
 
     category_selector.currentIndexChanged.connect(on_category_changed)
 
-    # Tải dữ liệu cho panel đầu tiên
+    # Tải dữ liệu cho panel đầu tiên khi khởi động
     if len(categories) > 0:
         on_category_changed(0)
 
@@ -72,41 +72,43 @@ def create_category_management_page():
 
 
 def _create_management_panel(table_name, display_name, column_headers):
-    # (Hàm này và các hàm bên dưới là nội bộ của file này, không cần export)
-    # ... (Nội dung hàm giữ nguyên như cũ)
+    """Tạo một panel riêng để quản lý một danh mục (thêm/sửa/xóa)."""
     panel = QWidget()
     layout = QVBoxLayout(panel)
     layout.setSpacing(15)
 
     button_layout = QHBoxLayout()
-    add_btn = QPushButton("  Thêm mới");
-    add_btn.setIcon(qta.icon("fa5s.plus", color="white"));
+    add_btn = QPushButton("  Thêm mới")
+    add_btn.setIcon(qta.icon("fa5s.plus", color="white"))
     add_btn.setObjectName("submitButton")
-    edit_btn = QPushButton("  Sửa");
-    edit_btn.setIcon(qta.icon("fa5s.edit", color="white"));
+    edit_btn = QPushButton("  Sửa")
+    edit_btn.setIcon(qta.icon("fa5s.edit", color="white"))
     edit_btn.setEnabled(False)
-    delete_btn = QPushButton("  Xóa");
-    delete_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"));
-    delete_btn.setObjectName("dangerButton");
+    delete_btn = QPushButton("  Xóa")
+    delete_btn.setIcon(qta.icon("fa5s.trash-alt", color="white"))
+    delete_btn.setObjectName("dangerButton")
     delete_btn.setEnabled(False)
 
-    button_layout.addWidget(add_btn);
-    button_layout.addWidget(edit_btn);
-    button_layout.addWidget(delete_btn);
+    button_layout.addWidget(add_btn)
+    button_layout.addWidget(edit_btn)
+    button_layout.addWidget(delete_btn)
     button_layout.addStretch()
     layout.addLayout(button_layout)
 
     table = QTableWidget()
-    table.setColumnCount(len(column_headers));
-    table.setHorizontalHeaderLabels(column_headers)
-    table.setEditTriggers(QTableWidget.NoEditTriggers);
+    table.setColumnCount(len(column_headers))
+    # Đặt tên cho các cột header
+    table.setHorizontalHeaderLabels([h.replace('_', ' ').title() for h in column_headers])
+    table.setEditTriggers(QTableWidget.NoEditTriggers)
     table.setSelectionBehavior(QTableWidget.SelectRows)
-    table.setSelectionMode(QTableWidget.SingleSelection);
+    table.setSelectionMode(QTableWidget.SingleSelection)
     table.verticalHeader().setVisible(False)
     table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+    # Ẩn cột ID (cột đầu tiên)
     table.setColumnHidden(0, True)
     layout.addWidget(table)
 
+    # Kết nối tín hiệu
     table.itemSelectionChanged.connect(lambda: _update_button_state(table, edit_btn, delete_btn))
     add_btn.clicked.connect(lambda: _add_item(table, table_name, column_headers))
     edit_btn.clicked.connect(lambda: _edit_item(table, table_name, column_headers))
@@ -116,106 +118,122 @@ def _create_management_panel(table_name, display_name, column_headers):
 
 
 def _load_data_to_table(table_widget, table_name, columns):
-    # ... (Nội dung hàm giữ nguyên như cũ)
+    """Tải dữ liệu từ một bảng trong CSDL SQLite vào QTableWidget."""
     try:
-        conn = get_conn()
-        cursor = conn.cursor()
-        column_names = [f'"{c}"' for c in columns]  # Handle potential keywords
-        cursor.execute(f"SELECT {', '.join(column_names)} FROM {table_name} ORDER BY id ASC")
-        records = cursor.fetchall()
-        table_widget.setRowCount(0)
-        for row_index, row_data in enumerate(records):
-            table_widget.insertRow(row_index)
-            for col_index, col_data in enumerate(row_data):
-                table_widget.setItem(row_index, col_index, QTableWidgetItem(str(col_data)))
+        # Sử dụng 'with' để quản lý kết nối an toàn
+        with get_conn() as conn:
+            cursor = conn.cursor()
+            # Câu lệnh SELECT đơn giản, không cần trích dẫn tên cột cho SQLite
+            query = f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY id ASC"
+            cursor.execute(query)
+            records = cursor.fetchall()
+
+            table_widget.setRowCount(0)
+            for row_index, row_data in enumerate(records):
+                table_widget.insertRow(row_index)
+                for col_index, col_data in enumerate(row_data):
+                    table_widget.setItem(row_index, col_index, QTableWidgetItem(str(col_data)))
     except Exception as e:
         QMessageBox.critical(None, "Lỗi Database", f"Không thể tải dữ liệu từ bảng '{table_name}':\n{e}")
-    finally:
-        if conn: conn.close()
 
 
 def _update_button_state(table, edit_btn, delete_btn):
-    # ... (Nội dung hàm giữ nguyên như cũ)
+    """Bật/tắt nút Sửa và Xóa dựa trên việc có hàng nào được chọn hay không."""
     is_selected = bool(table.selectedItems())
-    edit_btn.setEnabled(is_selected);
+    edit_btn.setEnabled(is_selected)
     delete_btn.setEnabled(is_selected)
 
 
 def _add_item(table, table_name, columns):
-    # ... (Nội dung hàm giữ nguyên như cũ)
-    fields_to_input = columns[1:]
+    """Thêm một mục mới vào bảng được chỉ định."""
+    fields_to_input = columns[1:]  # Bỏ qua cột 'id'
     values = []
     for field in fields_to_input:
-        value, ok = QInputDialog.getText(None, f"Thêm {table_name}", f"Nhập {field}:")
-        if not ok: return
-        if not value.strip() and 'ma_viet_tat' not in field:
-            QMessageBox.warning(None, "Dữ liệu không hợp lệ", f"{field} không được để trống.");
+        display_field_name = field.replace('_', ' ').title()
+        value, ok = QInputDialog.getText(None, f"Thêm - {table_name.title()}", f"Nhập {display_field_name}:")
+        if not ok: return # Người dùng nhấn Cancel
+
+        # Kiểm tra dữ liệu không được để trống (trừ trường hợp cụ thể nếu có)
+        if not value.strip():
+            QMessageBox.warning(None, "Dữ liệu không hợp lệ", f"{display_field_name} không được để trống.")
             return
         values.append(value.strip())
+
     try:
-        conn = get_conn()
-        cursor = conn.cursor()
-        query = f"INSERT INTO {table_name} ({', '.join(fields_to_input)}) VALUES ({', '.join(['%s'] * len(values))})"
-        cursor.execute(query, tuple(values));
-        conn.commit()
+        with get_conn() as conn:
+            cursor = conn.cursor()
+            # Sửa đổi cho SQLite: Dùng '?' làm placeholder
+            placeholders = ', '.join(['?'] * len(values))
+            query = f"INSERT INTO {table_name} ({', '.join(fields_to_input)}) VALUES ({placeholders})"
+            cursor.execute(query, tuple(values))
+            conn.commit()
         QMessageBox.information(None, "Thành công", "Đã thêm mục mới thành công!")
     except Exception as e:
         QMessageBox.critical(None, "Lỗi Database", f"Không thể thêm mục mới:\n{e}")
     finally:
-        if conn: conn.close()
+        # Tải lại dữ liệu sau khi thao tác
         _load_data_to_table(table, table_name, columns)
 
 
 def _edit_item(table, table_name, columns):
-    # ... (Nội dung hàm giữ nguyên như cũ)
+    """Sửa một mục đã có trong bảng."""
     selected_row = table.currentRow()
     if selected_row < 0: return
+
     item_id = table.item(selected_row, 0).text()
-    fields_to_edit = columns[1:]
+    fields_to_edit = columns[1:] # Bỏ qua cột 'id'
     new_values = []
+
     for i, field in enumerate(fields_to_edit):
         current_value = table.item(selected_row, i + 1).text()
-        new_value, ok = QInputDialog.getText(None, f"Sửa {table_name}", f"Nhập {field} mới:", text=current_value)
+        display_field_name = field.replace('_', ' ').title()
+        new_value, ok = QInputDialog.getText(None, f"Sửa - {table_name.title()}", f"Nhập {display_field_name} mới:", text=current_value)
         if not ok: return
-        if not new_value.strip() and 'ma_viet_tat' not in field:
-            QMessageBox.warning(None, "Dữ liệu không hợp lệ", f"{field} không được để trống.");
+
+        if not new_value.strip():
+            QMessageBox.warning(None, "Dữ liệu không hợp lệ", f"{display_field_name} không được để trống.")
             return
         new_values.append(new_value.strip())
+
     try:
-        conn = get_conn()
-        cursor = conn.cursor()
-        set_clause = ", ".join([f"{field} = %s" for field in fields_to_edit])
-        query = f"UPDATE {table_name} SET {set_clause} WHERE id = %s"
-        cursor.execute(query, tuple(new_values) + (item_id,));
-        conn.commit()
+        with get_conn() as conn:
+            cursor = conn.cursor()
+            # Sửa đổi cho SQLite: Dùng '?' làm placeholder
+            set_clause = ", ".join([f"{field} = ?" for field in fields_to_edit])
+            query = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"
+            # Thêm item_id vào cuối tuple dữ liệu
+            cursor.execute(query, tuple(new_values) + (item_id,))
+            conn.commit()
         QMessageBox.information(None, "Thành công", "Đã cập nhật mục thành công!")
     except Exception as e:
         QMessageBox.critical(None, "Lỗi Database", f"Không thể cập nhật mục:\n{e}")
     finally:
-        if conn: conn.close()
         _load_data_to_table(table, table_name, columns)
 
 
 def _delete_item(table, table_name):
-    # ... (Nội dung hàm giữ nguyên như cũ)
+    """Xóa một mục đã chọn khỏi bảng."""
     selected_row = table.currentRow()
     if selected_row < 0: return
+
     item_id = table.item(selected_row, 0).text()
-    item_name = table.item(selected_row, 1).text()
+    item_name = table.item(selected_row, 1).text() # Giả sử cột thứ 2 luôn là tên chính
+
     reply = QMessageBox.question(None, "Xác nhận xóa",
                                  f"Bạn có chắc chắn muốn xóa mục:\n'{item_name}' (ID: {item_id})?",
                                  QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
     if reply == QMessageBox.Yes:
         try:
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(f"DELETE FROM {table_name} WHERE id = %s", (item_id,));
-            conn.commit()
+            with get_conn() as conn:
+                cursor = conn.cursor()
+                # Sửa đổi cho SQLite: Dùng '?' làm placeholder
+                cursor.execute(f"DELETE FROM {table_name} WHERE id = ?", (item_id,))
+                conn.commit()
             QMessageBox.information(None, "Thành công", "Đã xóa mục thành công!")
         except Exception as e:
             QMessageBox.critical(None, "Lỗi Database",
                                  f"Không thể xóa mục. Có thể mục này đang được sử dụng ở nơi khác.\nLỗi: {e}")
         finally:
-            if conn: conn.close()
-            columns = [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())]
+            columns = [table.horizontalHeaderItem(i).text().lower().replace(' ', '_') for i in range(table.columnCount())]
             _load_data_to_table(table, table_name, columns)
