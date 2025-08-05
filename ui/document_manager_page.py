@@ -425,17 +425,35 @@ def _show_document_content_dialog(parent_window, html_content, document_number):
     layout.addWidget(button_box)
     dialog.exec_()
 
+
 def _load_documents_to_log(main_window):
     if main_window.log_table is None: return
     try:
         search_term = main_window.log_search_input.text().strip()
         type_id = main_window.log_filter_type_combo.currentData()
         unit_id = main_window.log_filter_unit_combo.currentData()
-        status = main_window.log_filter_status_combo.currentText()
+        status_filter = main_window.log_filter_status_combo.currentText()  # Đổi tên biến để rõ ràng hơn
+
         with get_conn() as conn:
             with conn.cursor() as cursor:
-                base_query = "SELECT d.id, d.so_van_ban, d.ngay_ban_hanh, lvb.ten as loai_van_ban,d.trich_yeu, ld.ten as lanh_dao, dv.ten as don_vi,dm.ten as do_mat, d.trang_thai FROM documents d LEFT JOIN loai_van_ban lvb ON d.loai_van_ban_id = lvb.id LEFT JOIN lanh_dao ld ON d.lanh_dao_id = ld.id LEFT JOIN don_vi dv ON d.don_vi_soan_thao_id = dv.id LEFT JOIN do_mat dm ON d.do_mat_id = dm.id"
+                base_query = """
+                             SELECT d.id, \
+                                    d.so_van_ban, \
+                                    d.ngay_ban_hanh, \
+                                    lvb.ten as loai_van_ban,
+                                    d.trich_yeu, \
+                                    ld.ten  as lanh_dao, \
+                                    dv.ten  as don_vi,
+                                    dm.ten  as do_mat, \
+                                    d.trang_thai
+                             FROM documents d
+                                      LEFT JOIN loai_van_ban lvb ON d.loai_van_ban_id = lvb.id
+                                      LEFT JOIN lanh_dao ld ON d.lanh_dao_id = ld.id
+                                      LEFT JOIN don_vi dv ON d.don_vi_soan_thao_id = dv.id
+                                      LEFT JOIN do_mat dm ON d.do_mat_id = dm.id \
+                             """
                 conditions, params = [], []
+
                 if search_term:
                     conditions.append("(d.so_van_ban ILIKE %s OR d.trich_yeu ILIKE %s)")
                     params.extend([f"%{search_term}%", f"%{search_term}%"])
@@ -445,30 +463,68 @@ def _load_documents_to_log(main_window):
                 if unit_id != -1:
                     conditions.append("d.don_vi_soan_thao_id = %s")
                     params.append(unit_id)
-                if status != "Tất cả trạng thái":
+                # Sửa logic lọc trạng thái để dùng giá trị từ CSDL
+                if status_filter != "Tất cả trạng thái":
                     conditions.append("d.trang_thai = %s")
-                    params.append(status)
+                    params.append(status_filter)
+
                 if conditions: base_query += " WHERE " + " AND ".join(conditions)
                 base_query += " ORDER BY d.ngay_ban_hanh DESC, d.id DESC"
+
                 cursor.execute(base_query, tuple(params))
                 records = cursor.fetchall()
                 main_window.log_table.setRowCount(0)
+
                 for row_index, row_data in enumerate(records):
                     main_window.log_table.insertRow(row_index)
-                    document_number, trich_yeu_html = row_data[1], row_data[4]
+
+                    document_id, document_number, trich_yeu_html, document_status = row_data[0], row_data[1], row_data[
+                        4], row_data[8]
+                    is_pending = (document_status == 'Chờ xác nhận')
+
+                    # --- BẮT ĐẦU PHẦN TÔ MÀU ---
+                    row_color = QColor("red") if is_pending else QColor(Qt.black)
                     for col_index, col_data in enumerate(row_data):
-                        if col_index in [4, 9]: continue
+                        if col_index in [4, 9]: continue  # Bỏ qua cột trích yếu và cột hành động
                         item = QTableWidgetItem(str(col_data) if col_data is not None else "")
+                        item.setForeground(row_color)  # Đặt màu cho chữ
                         main_window.log_table.setItem(row_index, col_index, item)
-                    view_button = QPushButton(qta.icon("fa5s.eye"), " Xem")
-                    view_button.setCursor(Qt.PointingHandCursor)
-                    view_button.clicked.connect(partial(_show_document_content_dialog, main_window, trich_yeu_html, document_number))
+                    # --- KẾT THÚC PHẦN TÔ MÀU ---
+
+                    # --- BẮT ĐẦU PHẦN THÊM NÚT HÀNH ĐỘNG ---
                     action_widget = QWidget()
                     action_layout = QHBoxLayout(action_widget)
-                    action_layout.addWidget(view_button)
+                    action_layout.setContentsMargins(5, 0, 5, 0)
+                    action_layout.setSpacing(5)
                     action_layout.setAlignment(Qt.AlignCenter)
-                    action_layout.setContentsMargins(0, 0, 0, 0)
+
+                    # Nút Xem (luôn hiển thị)
+                    view_button = QPushButton(qta.icon("fa5s.eye", color='#007bff'), " Xem")
+                    view_button.setCursor(Qt.PointingHandCursor)
+                    view_button.setToolTip("Xem trích yếu nội dung")
+                    view_button.clicked.connect(
+                        partial(_show_document_content_dialog, main_window, trich_yeu_html, document_number))
+                    action_layout.addWidget(view_button)
+
+                    # Nút Xác nhận và Hủy (chỉ hiển thị khi chờ xác nhận)
+                    if is_pending:
+                        confirm_button = QPushButton(qta.icon("fa5s.check-circle", color='green'), " Xác nhận")
+                        confirm_button.setCursor(Qt.PointingHandCursor)
+                        confirm_button.setToolTip("Chuyển trạng thái sang 'Đã xác nhận'")
+                        confirm_button.clicked.connect(
+                            partial(_update_document_status, main_window, document_id, 'Đã xác nhận'))
+                        action_layout.addWidget(confirm_button)
+
+                        cancel_button = QPushButton(qta.icon("fa5s.times-circle", color='red'), " Hủy")
+                        cancel_button.setCursor(Qt.PointingHandCursor)
+                        cancel_button.setToolTip("Chuyển trạng thái sang 'Đã hủy'")
+                        cancel_button.clicked.connect(
+                            partial(_update_document_status, main_window, document_id, 'Đã hủy'))
+                        action_layout.addWidget(cancel_button)
+
                     main_window.log_table.setCellWidget(row_index, 9, action_widget)
+                    # --- KẾT THÚC PHẦN THÊM NÚT HÀNH ĐỘNG ---
+
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi Database", f"Không thể tải danh sách văn bản:\n{e}")
 
@@ -497,3 +553,30 @@ def update_document_stats(main_window):
                 main_window.canceled_docs_label.setText(str(canceled))
     except Exception as e:
         print(f"Lỗi khi cập nhật thống kê: {e}")
+
+
+def _update_document_status(main_window, document_id, new_status):
+    """
+    Hàm để cập nhật trạng thái của văn bản trong CSDL.
+    Hiển thị hộp thoại xác nhận trước khi thực hiện.
+    """
+    action_verb = "xác nhận" if new_status == "Đã xác nhận" else "hủy"
+    question_msg = f"Bạn có chắc chắn muốn {action_verb} văn bản có ID {document_id} không?"
+
+    reply = QMessageBox.question(main_window, f"Xác nhận hành động", question_msg,
+                                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+    if reply == QMessageBox.Yes:
+        try:
+            with get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("UPDATE documents SET trang_thai = %s WHERE id = %s", (new_status, document_id))
+
+            QMessageBox.information(main_window, "Thành công", f"Đã {action_verb} văn bản thành công.")
+
+            # Tải lại danh sách và cập nhật thống kê để hiển thị thay đổi
+            _load_documents_to_log(main_window)
+            update_document_stats(main_window)
+
+        except Exception as e:
+            QMessageBox.critical(main_window, "Lỗi Database", f"Không thể cập nhật trạng thái văn bản:\n{e}")
