@@ -181,7 +181,7 @@ class ModernApp(QMainWindow):
 
         # --- 1. Tiêu đề chính ---
         # Sử dụng ký tự emoji thay cho icon
-        title = QLabel("🎉 Chào mừng bạn đến Hệ thống Cấp số Văn bản!")
+        title = QLabel("Chào mừng bạn đến Hệ thống Cấp số Văn bản!")
         title.setObjectName("h1")
         title.setAlignment(Qt.AlignCenter)
 

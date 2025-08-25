@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt, QDate, QSize
 import qtawesome as qta
 from functools import partial
 from db.db import get_conn
-
+from PyQt5.QtWidgets import QDateEdit
 
 # ===================================================================
 # SECTION 0: CUSTOM WIDGETS (WIDGET TÙY CHỈNH)
@@ -184,9 +184,9 @@ def create_document_creation_page(main_window, page_id, title_text):
         ('do_mat', "Độ Mật:", QComboBox),
         ('lanh_dao_ky', "Lãnh đạo ký:", QComboBox),
         ('don_vi_soan_thao', "Đơn vị soạn thảo:", QComboBox),
-        ('noi_nhan', "Nơi nhận (chọn nhiều):", QListWidget),
+        ('noi_nhan', "Nơi nhận:", QLineEdit),
         ('so_luong_ban', "Số lượng bản:", QLineEdit),
-        ('don_vi_luu_tru', "Đơn vị lưu trữ:", QComboBox),
+        ('don_vi_luu_tru', "Đơn vị lưu trữ :", QListWidget),
     ]
 
     for name, label, widget_class in form_fields_config:
@@ -200,6 +200,9 @@ def create_document_creation_page(main_window, page_id, title_text):
         elif isinstance(widget, QListWidget):
             widget.setSelectionMode(QListWidget.ExtendedSelection)
             widget.setMinimumHeight(100)
+        elif isinstance(widget, QComboBox):
+            if name == 'noi_nhan':
+                widget.setEditable(True)
         widgets[name] = widget
         form_layout.addRow(label, widget)
 
@@ -235,12 +238,38 @@ def create_document_log_page(main_window):
     reload_button = QPushButton(qta.icon("fa5s.sync-alt"), " Tải lại")
     reload_button.setToolTip("Tải lại danh sách văn bản từ cơ sở dữ liệu")
     title_layout.addWidget(reload_button)
+    export_excel_button = QPushButton(qta.icon("fa5s.file-excel", color="green"), " Xuất Excel")
+    export_excel_button.setToolTip("Xuất kết quả tìm kiếm ra Excel")
+    title_layout.addWidget(export_excel_button)
+
+    export_pdf_button = QPushButton(qta.icon("fa5s.file-pdf", color="red"), " Xuất PDF")
+    export_pdf_button.setToolTip("Xuất kết quả tìm kiếm ra PDF")
+    title_layout.addWidget(export_pdf_button)
+    export_excel_button.clicked.connect(lambda: export_to_excel(main_window))
+    export_pdf_button.clicked.connect(lambda: export_to_pdf(main_window))
+
     layout.addLayout(title_layout)
 
     # Khung chứa bộ lọc
     filter_frame = QFrame()
     filter_frame.setObjectName("formCard")
     filter_layout = QGridLayout(filter_frame)
+
+    main_window.log_filter_from_date = QDateEdit()
+    main_window.log_filter_from_date.setCalendarPopup(True)
+    main_window.log_filter_from_date.setDisplayFormat("dd/MM/yyyy")
+    main_window.log_filter_from_date.setDate(QDate.currentDate().addMonths(-1))  # mặc định 1 tháng trước
+
+    main_window.log_filter_to_date = QDateEdit()
+    main_window.log_filter_to_date.setCalendarPopup(True)
+    main_window.log_filter_to_date.setDisplayFormat("dd/MM/yyyy")
+    main_window.log_filter_to_date.setDate(QDate.currentDate())  # mặc định hôm nay
+
+    filter_layout.addWidget(QLabel("Từ ngày:"), 3, 0)
+    filter_layout.addWidget(main_window.log_filter_from_date, 3, 1)
+    filter_layout.addWidget(QLabel("Đến ngày:"), 3, 2)
+    filter_layout.addWidget(main_window.log_filter_to_date, 3, 3)
+
 
     main_window.log_search_input = QLineEdit()
     main_window.log_search_input.setPlaceholderText("Tìm theo số văn bản, trích yếu...")
@@ -320,8 +349,8 @@ def _populate_form_combos(main_window):
                         'do_mat': (db_map['do_mat'], "--- Chọn độ mật ---"),
                         'lanh_dao_ky': (db_map['lanh_dao'], "--- Chọn lãnh đạo ---"),
                         'don_vi_soan_thao': (db_map['don_vi'], "--- Chọn đơn vị soạn thảo ---"),
-                        'don_vi_luu_tru': (db_map['don_vi'], "--- Chọn đơn vị lưu trữ ---"),
-                        'noi_nhan': (db_map['noi_nhan'], None),
+                        'don_vi_luu_tru': (db_map['don_vi'], None),
+                        'noi_nhan': (db_map['noi_nhan'], ""),
                     }
                     for name, widget in widgets.items():
                         if name in widget_query_map:
@@ -371,43 +400,99 @@ def _validate_form(main_window, page_id):
             field_name = field_display_names.get(name, name)
             return False, f"Vui lòng điền hoặc chọn thông tin cho mục:\n\n'{field_name}'"
     return True, None
-
 def _submit_document(main_window, page_id):
     is_valid, error_message = _validate_form(main_window, page_id)
     if not is_valid:
         QMessageBox.warning(main_window, "Thiếu thông tin", error_message)
         return
+
     widgets = main_window.form_widgets[page_id]['widgets']
     try:
         with get_conn() as conn:
             with conn.cursor() as cursor:
+                # ==== 1. Sinh số văn bản ====
                 current_year = QDate.currentDate().year()
-                cursor.execute("SELECT ma_viet_tat FROM loai_van_ban WHERE id = %s",(widgets['loai_van_ban'].currentData(),))
+                cursor.execute("SELECT ma_viet_tat FROM loai_van_ban WHERE id = %s",
+                               (widgets['loai_van_ban'].currentData(),))
                 doc_type_code = cursor.fetchone()[0]
+
+                ngay_thang_nam = QDate.currentDate().toString("dd/MM/yyyy")
                 don_vi_soan_thao_id = widgets['don_vi_soan_thao'].currentData()
-                cursor.execute("SELECT ma_viet_tat FROM don_vi WHERE id = %s", (don_vi_soan_thao_id,))
+                cursor.execute("SELECT ten FROM don_vi WHERE id = %s", (don_vi_soan_thao_id,))
                 unit_code = cursor.fetchone()[0]
-                cursor.execute("SELECT COUNT(*) FROM documents WHERE EXTRACT(YEAR FROM ngay_ban_hanh) = %s",(current_year,))
+
+                cursor.execute("SELECT COUNT(*) FROM documents WHERE EXTRACT(YEAR FROM ngay_ban_hanh) = %s",
+                               (current_year,))
                 so_hien_tai = cursor.fetchone()[0] + 1
-                so_van_ban = f"{so_hien_tai:03d}/{doc_type_code}-{unit_code}"
-                data = {'loai_so': page_id, 'so_van_ban': so_van_ban, 'ngay_ban_hanh': QDate.currentDate().toPyDate(), 'trich_yeu': widgets['trich_yeu'].toHtml(), 'loai_van_ban_id': widgets['loai_van_ban'].currentData(), 'do_mat_id': widgets['do_mat'].currentData() if page_id == 'mat' else None, 'lanh_dao_id': widgets['lanh_dao_ky'].currentData(), 'don_vi_soan_thao_id': don_vi_soan_thao_id, 'so_luong_ban': int(widgets['so_luong_ban'].text()) if widgets['so_luong_ban'].text().isdigit() else None, 'don_vi_luu_tru_id': widgets['don_vi_luu_tru'].currentData(),}
-                insert_query = """INSERT INTO documents (loai_so, so_van_ban, ngay_ban_hanh, trich_yeu, loai_van_ban_id,do_mat_id, lanh_dao_id, don_vi_soan_thao_id, so_luong_ban,don_vi_luu_tru_id) VALUES (%(loai_so)s, %(so_van_ban)s, %(ngay_ban_hanh)s, %(trich_yeu)s, %(loai_van_ban_id)s,%(do_mat_id)s, %(lanh_dao_id)s, %(don_vi_soan_thao_id)s, %(so_luong_ban)s,%(don_vi_luu_tru_id)s) RETURNING id;"""
+
+                so_van_ban = f"{so_hien_tai:03d}/{doc_type_code}-PA03-{unit_code} ngày {ngay_thang_nam}"
+
+                # ==== 2. Xử lý nơi nhận (sẽ lưu vào documents.don_vi_luu_tru_id) ====
+                noi_nhan_text = widgets['noi_nhan'].text().strip()
+                noi_nhan_id = None
+                if noi_nhan_text:
+                    cursor.execute("INSERT INTO noi_nhan (ten) VALUES (%s) RETURNING id", (noi_nhan_text,))
+                    noi_nhan_id = cursor.fetchone()[0]
+
+                # ==== 3. Insert vào documents (don_vi_luu_tru_id = nơi nhận) ====
+                data = {
+                    'loai_so': page_id,
+                    'so_van_ban': so_van_ban,
+                    'ngay_ban_hanh': QDate.currentDate().toPyDate(),
+                    'trich_yeu': widgets['trich_yeu'].toHtml(),
+                    'loai_van_ban_id': widgets['loai_van_ban'].currentData(),
+                    'do_mat_id': widgets['do_mat'].currentData() if page_id == 'mat' else None,
+                    'lanh_dao_id': widgets['lanh_dao_ky'].currentData(),
+                    'don_vi_soan_thao_id': don_vi_soan_thao_id,
+                    'so_luong_ban': int(widgets['so_luong_ban'].text()) if widgets['so_luong_ban'].text().isdigit() else None,
+                    'don_vi_luu_tru_id': noi_nhan_id
+                }
+
+                insert_query = """
+                    INSERT INTO documents (
+                        loai_so, so_van_ban, ngay_ban_hanh, trich_yeu,
+                        loai_van_ban_id, do_mat_id, lanh_dao_id,
+                        don_vi_soan_thao_id, so_luong_ban, don_vi_luu_tru_id
+                    )
+                    VALUES (
+                        %(loai_so)s, %(so_van_ban)s, %(ngay_ban_hanh)s, %(trich_yeu)s,
+                        %(loai_van_ban_id)s, %(do_mat_id)s, %(lanh_dao_id)s,
+                        %(don_vi_soan_thao_id)s, %(so_luong_ban)s, %(don_vi_luu_tru_id)s
+                    )
+                    RETURNING id;
+                """
                 cursor.execute(insert_query, data)
                 new_document_id = cursor.fetchone()[0]
-                selected_noi_nhan_items = widgets['noi_nhan'].selectedItems()
-                noi_nhan_ids = [item.data(Qt.UserRole) for item in selected_noi_nhan_items]
-                if noi_nhan_ids:
-                    args_str = ','.join(cursor.mogrify("(%s,%s)", (new_document_id, nid)).decode('utf-8') for nid in noi_nhan_ids)
-                    cursor.execute("INSERT INTO document_noi_nhan (document_id, noi_nhan_id) VALUES " + args_str)
+
+                # ==== 4. Lấy danh sách Đơn vị lưu trữ (giờ sẽ lưu trong document_noi_nhan) ====
+                selected_luu_tru_items = widgets['don_vi_luu_tru'].selectedItems()
+                don_vi_luu_tru_ids = [item.data(Qt.UserRole) for item in selected_luu_tru_items]
+
+                if don_vi_luu_tru_ids:
+                    args_str = ",".join(
+                        cursor.mogrify("(%s, %s)", (new_document_id, did)).decode("utf-8")
+                        for did in don_vi_luu_tru_ids
+                    )
+                    cursor.execute(
+                        "INSERT INTO document_noi_nhan (document_id, noi_nhan_id) VALUES " + args_str
+                    )
+
+                # ==== 5. Cập nhật giao diện ====
                 result_label = main_window.form_widgets[page_id]['result_label']
-                ngay_thang_nam = QDate.currentDate().toString("dd/MM/yyyy")
-                result_label.setText(f"Cấp số thành công: {so_van_ban} ngày {ngay_thang_nam}")
+                result_label.setText(f"Cấp số thành công: {so_van_ban}")
+
+                # Reset form
                 for widget in widgets.values():
-                    if isinstance(widget, (QLineEdit, QTextEdit, RichTextEditor)): widget.clear()
-                    elif isinstance(widget, QComboBox): widget.setCurrentIndex(0)
-                    elif isinstance(widget, QListWidget): widget.clearSelection()
+                    if isinstance(widget, (QLineEdit, QTextEdit, RichTextEditor)):
+                        widget.clear()
+                    elif isinstance(widget, QComboBox):
+                        widget.setCurrentIndex(0)
+                    elif isinstance(widget, QListWidget):
+                        widget.clearSelection()
+
                 _load_documents_to_log(main_window)
                 update_document_stats(main_window)
+
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi khi cấp số", f"Đã xảy ra lỗi:\n{e}")
 
@@ -467,7 +552,15 @@ def _load_documents_to_log(main_window):
                 if status_filter != "Tất cả trạng thái":
                     conditions.append("d.trang_thai = %s")
                     params.append(status_filter)
+                from_date = main_window.log_filter_from_date.date().toPyDate()
+                to_date = main_window.log_filter_to_date.date().toPyDate()
 
+                if from_date:
+                    conditions.append("d.ngay_ban_hanh >= %s")
+                    params.append(from_date)
+                if to_date:
+                    conditions.append("d.ngay_ban_hanh <= %s")
+                    params.append(to_date)
                 if conditions: base_query += " WHERE " + " AND ".join(conditions)
                 base_query += " ORDER BY d.ngay_ban_hanh DESC, d.id DESC"
 
@@ -580,3 +673,89 @@ def _update_document_status(main_window, document_id, new_status):
 
         except Exception as e:
             QMessageBox.critical(main_window, "Lỗi Database", f"Không thể cập nhật trạng thái văn bản:\n{e}")
+
+
+
+import openpyxl
+from openpyxl.styles import Font, Alignment
+from PyQt5.QtWidgets import QFileDialog
+
+def export_to_excel(main_window):
+    row_count = main_window.log_table.rowCount()
+    col_count = main_window.log_table.columnCount()
+
+    if row_count == 0:
+        QMessageBox.warning(main_window, "Xuất Excel", "Không có dữ liệu để xuất!")
+        return
+
+    path, _ = QFileDialog.getSaveFileName(main_window, "Lưu file Excel", "", "Excel Files (*.xlsx)")
+    if not path: return
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Danh sách VB"
+
+    # Header
+    headers = [main_window.log_table.horizontalHeaderItem(c).text() for c in range(col_count) if not main_window.log_table.isColumnHidden(c)]
+    ws.append(headers)
+
+    for col in ws.iter_cols(min_row=1, max_row=1):
+        for cell in col:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
+
+    # Data
+    for r in range(row_count):
+        row_data = []
+        for c in range(col_count):
+            if not main_window.log_table.isColumnHidden(c):
+                item = main_window.log_table.item(r, c)
+                row_data.append(item.text() if item else "")
+        ws.append(row_data)
+
+    wb.save(path)
+    QMessageBox.information(main_window, "Xuất Excel", f"Xuất dữ liệu thành công:\n{path}")
+
+
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+
+def export_to_pdf(main_window):
+    row_count = main_window.log_table.rowCount()
+    col_count = main_window.log_table.columnCount()
+
+    if row_count == 0:
+        QMessageBox.warning(main_window, "Xuất PDF", "Không có dữ liệu để xuất!")
+        return
+
+    path, _ = QFileDialog.getSaveFileName(main_window, "Lưu file PDF", "", "PDF Files (*.pdf)")
+    if not path: return
+
+    data = []
+    headers = [main_window.log_table.horizontalHeaderItem(c).text() for c in range(col_count) if not main_window.log_table.isColumnHidden(c)]
+    data.append(headers)
+
+    for r in range(row_count):
+        row_data = []
+        for c in range(col_count):
+            if not main_window.log_table.isColumnHidden(c):
+                item = main_window.log_table.item(r, c)
+                row_data.append(item.text() if item else "")
+        data.append(row_data)
+
+    pdf = SimpleDocTemplate(path, pagesize=A4)
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+    ]))
+
+    pdf.build([table])
+    QMessageBox.information(main_window, "Xuất PDF", f"Xuất dữ liệu thành công:\n{path}")
