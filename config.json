@@ -4,6 +4,6 @@
   "port": 5432,
   "dbname": "quanlyvanban",
   "username": "postgres",
-  "password": "123456",
+  "password": "123456a",
   "sslmode":"disable"
 }

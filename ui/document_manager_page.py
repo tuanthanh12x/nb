@@ -299,7 +299,7 @@ def create_document_log_page(main_window):
     # Bảng dữ liệu
     main_window.log_table = QTableWidget()
     headers = ["ID", "Số VB", "Ngày ban hành", "Loại VB", "Trích yếu", "Lãnh đạo ký", "ĐV Soạn thảo", "Độ mật",
-               "Trạng thái", "Hành động"]
+               "Trạng thái","Nơi nhận", "Hành động"]
     main_window.log_table.setColumnCount(len(headers))
     main_window.log_table.setHorizontalHeaderLabels(headers)
     main_window.log_table.setColumnHidden(0, True)
@@ -310,7 +310,10 @@ def create_document_log_page(main_window):
     main_window.log_table.verticalHeader().setVisible(False)
     main_window.log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
     main_window.log_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-    main_window.log_table.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeToContents)
+    main_window.log_table.horizontalHeader().setSectionResizeMode(10, QHeaderView.ResizeToContents)
+
+    # (khuyến nghị) đặt tối thiểu một độ rộng để chắc chắn thấy nút
+    main_window.log_table.setColumnWidth(10, 200)
     layout.addWidget(main_window.log_table)
 
     # Kết nối tín hiệu
@@ -349,8 +352,7 @@ def _populate_form_combos(main_window):
                         'do_mat': (db_map['do_mat'], "--- Chọn độ mật ---"),
                         'lanh_dao_ky': (db_map['lanh_dao'], "--- Chọn lãnh đạo ---"),
                         'don_vi_soan_thao': (db_map['don_vi'], "--- Chọn đơn vị soạn thảo ---"),
-                        'don_vi_luu_tru': (db_map['don_vi'], None),
-                        'noi_nhan': (db_map['noi_nhan'], ""),
+                        'don_vi_luu_tru': (db_map['don_vi'], None)
                     }
                     for name, widget in widgets.items():
                         if name in widget_query_map:
@@ -411,21 +413,37 @@ def _submit_document(main_window, page_id):
         with get_conn() as conn:
             with conn.cursor() as cursor:
                 # ==== 1. Sinh số văn bản ====
+                # ==== 1. Sinh số văn bản (chạy riêng theo loại VB + theo năm) ====
                 current_year = QDate.currentDate().year()
-                cursor.execute("SELECT ma_viet_tat FROM loai_van_ban WHERE id = %s",
-                               (widgets['loai_van_ban'].currentData(),))
-                doc_type_code = cursor.fetchone()[0]
+
+                # lấy mã viết tắt loại văn bản (VD: BC, TM, …)
+                loai_vb_id = widgets['loai_van_ban'].currentData()
+                cursor.execute("SELECT ma_viet_tat FROM loai_van_ban WHERE id = %s", (loai_vb_id,))
+                doc_type_code = (cursor.fetchone() or [""])[0] or ""
+                doc_type_code = doc_type_code.upper()
 
                 ngay_thang_nam = QDate.currentDate().toString("dd/MM/yyyy")
+
+                # đơn vị soạn thảo để ghép đuôi (nếu bạn vẫn muốn)
                 don_vi_soan_thao_id = widgets['don_vi_soan_thao'].currentData()
                 cursor.execute("SELECT ten FROM don_vi WHERE id = %s", (don_vi_soan_thao_id,))
-                unit_code = cursor.fetchone()[0]
+                unit_code = (cursor.fetchone() or [""])[0] or ""
 
-                cursor.execute("SELECT COUNT(*) FROM documents WHERE EXTRACT(YEAR FROM ngay_ban_hanh) = %s",
-                               (current_year,))
+                # ĐẾM SỐ HIỆN TẠI CHO RIÊNG LOẠI VĂN BẢN (và theo năm)
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM documents
+                    WHERE loai_van_ban_id = %s
+                      AND EXTRACT(YEAR FROM ngay_ban_hanh) = %s
+                """, (loai_vb_id, current_year))
                 so_hien_tai = cursor.fetchone()[0] + 1
 
-                so_van_ban = f"{so_hien_tai:03d}/{doc_type_code}-PA03-{unit_code} ngày {ngay_thang_nam}"
+                if doc_type_code == "CV":
+                    # Công văn: không thêm code
+                    so_van_ban = f"{so_hien_tai:03d}/PA03-{unit_code} ngày {ngay_thang_nam}"
+                else:
+                    # Các loại khác: có code
+                    so_van_ban = f"{so_hien_tai:03d}/{doc_type_code}-PA03-{unit_code} ngày {ngay_thang_nam}"
 
                 # ==== 2. Xử lý nơi nhận (sẽ lưu vào documents.don_vi_luu_tru_id) ====
                 noi_nhan_text = widgets['noi_nhan'].text().strip()
@@ -445,19 +463,20 @@ def _submit_document(main_window, page_id):
                     'lanh_dao_id': widgets['lanh_dao_ky'].currentData(),
                     'don_vi_soan_thao_id': don_vi_soan_thao_id,
                     'so_luong_ban': int(widgets['so_luong_ban'].text()) if widgets['so_luong_ban'].text().isdigit() else None,
-                    'don_vi_luu_tru_id': noi_nhan_id
+                    'don_vi_luu_tru_id': noi_nhan_id,
+                    'noinhanx': noi_nhan_text,
                 }
 
                 insert_query = """
                     INSERT INTO documents (
                         loai_so, so_van_ban, ngay_ban_hanh, trich_yeu,
                         loai_van_ban_id, do_mat_id, lanh_dao_id,
-                        don_vi_soan_thao_id, so_luong_ban, don_vi_luu_tru_id
+                        don_vi_soan_thao_id, so_luong_ban, noinhanx
                     )
                     VALUES (
                         %(loai_so)s, %(so_van_ban)s, %(ngay_ban_hanh)s, %(trich_yeu)s,
                         %(loai_van_ban_id)s, %(do_mat_id)s, %(lanh_dao_id)s,
-                        %(don_vi_soan_thao_id)s, %(so_luong_ban)s, %(don_vi_luu_tru_id)s
+                        %(don_vi_soan_thao_id)s, %(so_luong_ban)s, %(noinhanx)s
                     )
                     RETURNING id;
                 """
@@ -465,17 +484,17 @@ def _submit_document(main_window, page_id):
                 new_document_id = cursor.fetchone()[0]
 
                 # ==== 4. Lấy danh sách Đơn vị lưu trữ (giờ sẽ lưu trong document_noi_nhan) ====
-                selected_luu_tru_items = widgets['don_vi_luu_tru'].selectedItems()
-                don_vi_luu_tru_ids = [item.data(Qt.UserRole) for item in selected_luu_tru_items]
-
-                if don_vi_luu_tru_ids:
-                    args_str = ",".join(
-                        cursor.mogrify("(%s, %s)", (new_document_id, did)).decode("utf-8")
-                        for did in don_vi_luu_tru_ids
-                    )
-                    cursor.execute(
-                        "INSERT INTO document_noi_nhan (document_id, noi_nhan_id) VALUES " + args_str
-                    )
+                # selected_luu_tru_items = widgets['don_vi_luu_tru'].selectedItems()
+                # don_vi_luu_tru_ids = [item.data(Qt.UserRole) for item in selected_luu_tru_items]
+                #
+                # if don_vi_luu_tru_ids:
+                #     args_str = ",".join(
+                #         cursor.mogrify("(%s, %s)", (new_document_id, did)).decode("utf-8")
+                #         for did in don_vi_luu_tru_ids
+                #     )
+                #     cursor.execute(
+                #         "INSERT INTO document_noi_nhan (document_id, noi_nhan_id) VALUES " + args_str
+                #     )
 
                 # ==== 5. Cập nhật giao diện ====
                 result_label = main_window.form_widgets[page_id]['result_label']
@@ -530,7 +549,8 @@ def _load_documents_to_log(main_window):
                                     ld.ten  as lanh_dao, \
                                     dv.ten  as don_vi,
                                     dm.ten  as do_mat, \
-                                    d.trang_thai
+                                    d.trang_thai,
+                                    d.noinhanx  
                              FROM documents d
                                       LEFT JOIN loai_van_ban lvb ON d.loai_van_ban_id = lvb.id
                                       LEFT JOIN lanh_dao ld ON d.lanh_dao_id = ld.id
@@ -571,27 +591,36 @@ def _load_documents_to_log(main_window):
                 for row_index, row_data in enumerate(records):
                     main_window.log_table.insertRow(row_index)
 
-                    document_id, document_number, trich_yeu_html, document_status = row_data[0], row_data[1], row_data[
-                        4], row_data[8]
-                    is_pending = (document_status == 'Chờ xác nhận')
+                    # row_data: [0..10] tương ứng các cột đã SELECT
+                    document_id = row_data[0]
+                    document_number = row_data[1]
+                    trich_yeu_html = row_data[4]
+                    status_raw = row_data[8] or ''
+                    status_norm = status_raw.strip().casefold()  # bỏ khoảng trắng, so sánh không phân biệt hoa/thường
 
-                    # --- BẮT ĐẦU PHẦN TÔ MÀU ---
+                    # Chấp nhận vài biến thể người dùng hay nhập
+                    pending_variants = {
+                        'Ch? x c nh?n','Chờ xác nhận', 'chờ xác nhận', 'cho xac nhan', 'cho xác nhận', 'chờ xác nhận'
+                    }
+                    is_pending = status_norm in pending_variants
+
+                    # Tô màu hàng theo trạng thái
                     row_color = QColor("red") if is_pending else QColor(Qt.black)
-                    for col_index, col_data in enumerate(row_data):
-                        if col_index in [4, 9]: continue  # Bỏ qua cột trích yếu và cột hành động
-                        item = QTableWidgetItem(str(col_data) if col_data is not None else "")
-                        item.setForeground(row_color)  # Đặt màu cho chữ
-                        main_window.log_table.setItem(row_index, col_index, item)
-                    # --- KẾT THÚC PHẦN TÔ MÀU ---
 
-                    # --- BẮT ĐẦU PHẦN THÊM NÚT HÀNH ĐỘNG ---
+                    for col_index, col_data in enumerate(row_data):
+                        if col_index in [4, 10]:  # <— bỏ qua cột Trích yếu (4) và cột Hành động (10 sẽ đặt sau)
+                            continue
+                        item = QTableWidgetItem(str(col_data) if col_data is not None else "")
+                        item.setForeground(row_color)
+                        main_window.log_table.setItem(row_index, col_index, item)
+
+                    # Widget hành động đặt ở cột 10 (sau “Nơi nhận”)
                     action_widget = QWidget()
                     action_layout = QHBoxLayout(action_widget)
                     action_layout.setContentsMargins(5, 0, 5, 0)
                     action_layout.setSpacing(5)
                     action_layout.setAlignment(Qt.AlignCenter)
 
-                    # Nút Xem (luôn hiển thị)
                     view_button = QPushButton(qta.icon("fa5s.eye", color='#007bff'), " Xem")
                     view_button.setCursor(Qt.PointingHandCursor)
                     view_button.setToolTip("Xem trích yếu nội dung")
@@ -599,7 +628,6 @@ def _load_documents_to_log(main_window):
                         partial(_show_document_content_dialog, main_window, trich_yeu_html, document_number))
                     action_layout.addWidget(view_button)
 
-                    # Nút Xác nhận và Hủy (chỉ hiển thị khi chờ xác nhận)
                     if is_pending:
                         confirm_button = QPushButton(qta.icon("fa5s.check-circle", color='green'), " Xác nhận")
                         confirm_button.setCursor(Qt.PointingHandCursor)
@@ -615,8 +643,8 @@ def _load_documents_to_log(main_window):
                             partial(_update_document_status, main_window, document_id, 'Đã hủy'))
                         action_layout.addWidget(cancel_button)
 
-                    main_window.log_table.setCellWidget(row_index, 9, action_widget)
-                    # --- KẾT THÚC PHẦN THÊM NÚT HÀNH ĐỘNG ---
+                    main_window.log_table.setCellWidget(row_index, 10, action_widget)  # <— cập nhật vị trí “Hành động”
+
 
     except Exception as e:
         QMessageBox.critical(main_window, "Lỗi Database", f"Không thể tải danh sách văn bản:\n{e}")
