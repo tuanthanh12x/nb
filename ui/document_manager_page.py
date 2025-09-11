@@ -642,7 +642,7 @@ def _submit_document(main_window, page_id):
                                 AND d.loai_so = %s           
 
                       AND EXTRACT(YEAR FROM d.ngay_ban_hanh) = %s
-                """, (loai_vb_id, current_year))
+                """, (loai_vb_id, loai_so, current_year))
                 max_so = cursor.fetchone()[0]
                 so_moi = (max_so or 0) + 1
 
