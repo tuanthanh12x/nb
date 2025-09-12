@@ -1,5 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMessageBox
+
+from ui.document_manager_page import apply_app_style
 from ui.main_window import  ModernApp
 from init_db import init_db
 from init_admin import init_dbx
@@ -11,6 +13,7 @@ def main():
 
         app = QApplication(sys.argv)
         # window = TailwindStyleApp()
+        apply_app_style(app)
         window = ModernApp()
         window.show()
         sys.exit(app.exec_())

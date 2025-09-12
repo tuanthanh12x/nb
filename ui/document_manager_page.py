@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QLineEdit, QFormLayout, QTextEdit,
     QComboBox, QFrame, QGridLayout, QMessageBox, QTableWidget,
     QTableWidgetItem, QHeaderView, QToolBar, QAction,
-    QDialog, QDialogButtonBox, QAbstractItemView, QFileDialog, QDateEdit
+    QDialog, QDialogButtonBox, QAbstractItemView, QFileDialog, QDateEdit, QSizePolicy, QScrollArea
 )
 from PyQt5.QtGui import (
     QTextCharFormat, QFont, QColor, QTextCursor, QTextListFormat
@@ -12,6 +12,79 @@ from PyQt5.QtCore import Qt, QDate, QSize
 import qtawesome as qta
 from functools import partial
 from db.db import get_conn
+def apply_app_style(app):
+    app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
+    base_css = """
+    /* ---------- Base ---------- */
+    QWidget { font-size: 14px; }
+    QLabel#h1 { font-size: 24px; font-weight: 700; }
+    QLabel#h2 { font-size: 20px; font-weight: 600; }
+
+    /* Nền dịu và khoảng cách mặc định */
+    QMainWindow, QWidget#centralWidget { background: #f6f7fb; }
+
+    /* ---------- Card ---------- */
+    QFrame#formCard, QFrame#statCard, QFrame#features_frame {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+    QFrame#formCard, QFrame#statCard {
+        /* đổ bóng nhẹ */
+        box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.08);
+    }
+
+    /* ---------- Inputs ---------- */
+    QLineEdit, QComboBox, QTextEdit {
+        border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; background: #fff;
+    }
+    QLineEdit:focus, QComboBox:focus, QTextEdit:focus {
+        border-color: #93c5fd;
+    }
+
+    /* Placeholder nhạt */
+    QLineEdit::placeholder { color: #9aa3b2; }
+
+    /* ---------- Buttons ---------- */
+    QPushButton {
+        padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff;
+    }
+    QPushButton#submitButton, QPushButton#primaryButton {
+        background: #2563eb; color: white; border: 0;
+    }
+    QPushButton#submitButton:hover, QPushButton#primaryButton:hover { background: #1d4ed8; }
+    QPushButton#cancelButton { background: #f3f4f6; }
+    QPushButton#cta_button { background: #111827; color: #fff; border: 0; }
+
+    /* ---------- Toolbar ---------- */
+    QToolBar { border: 0; padding: 4px 6px; background: transparent; }
+
+    /* ---------- Table ---------- */
+    QTableWidget {
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+        gridline-color: #e5e7eb;
+    }
+    QHeaderView::section {
+        background: #f9fafb; border: 0; border-bottom: 1px solid #e5e7eb;
+        padding: 8px; font-weight: 600;
+    }
+    QTableWidget::item { padding: 6px; }
+    QTableWidget::item:selected { background: #eff6ff; color: #111827; }
+
+    /* Zebra */
+    QTableWidget { alternate-background-color: #fcfdff; }
+
+    /* ---------- Pills trạng thái ---------- */
+    QLabel.status-pill {
+        padding: 2px 8px; border-radius: 999px; font-weight: 600;
+        color: #0f172a; background: #e5e7eb;
+    }
+    QLabel.status-pill[status="Chờ xác nhận"] { background: #fff7ed; color: #9a3412; } /* amber */
+    QLabel.status-pill[status="Đã xác nhận"] { background: #ecfdf5; color: #065f46; } /* green */
+    QLabel.status-pill[status="Đã hủy"] { background: #fef2f2; color: #991b1b; }      /* red */
+    """
+    app.setStyleSheet(base_css)
 
 # ===================================================================
 # SECTION 0: CUSTOM WIDGETS (WIDGET TÙY CHỈNH)
@@ -165,18 +238,20 @@ class RichTextEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.init_ui()
-
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
+        layout.setSpacing(8)
 
         self.toolbar = QToolBar()
-        self.toolbar.setIconSize(QSize(16, 16))
+        self.toolbar.setIconSize(QSize(18, 18))  # CHANGED: lớn hơn, đẹp hơn
         layout.addWidget(self.toolbar)
 
         self.editor = QTextEdit()
-        self.editor.setMinimumHeight(150)
+        self.editor.setMinimumHeight(180)        # CHANGED
+        self.editor.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )                                         # NEW
         layout.addWidget(self.editor)
 
         self._add_actions()
@@ -289,71 +364,110 @@ class RichTextEditor(QWidget):
 # ===================================================================
 # SECTION 1: CÁC HÀM TẠO GIAO DIỆN (UI CREATION FUNCTIONS)
 # ===================================================================
-
 def create_document_creation_page(main_window, page_id, title_text):
-    """
-    Tạo trang để cấp số văn bản (Mật hoặc Thường).
-    """
     page = QWidget()
-    layout = QVBoxLayout(page)
-    layout.setContentsMargins(30, 20, 30, 30)
-    layout.setSpacing(20)
-    layout.setAlignment(Qt.AlignTop)
+    root = QVBoxLayout(page)
+    root.setContentsMargins(30, 20, 30, 30)
+    root.setSpacing(20)
+    root.setAlignment(Qt.AlignTop)
 
+    # Tiêu đề
     title = QLabel(title_text)
     title.setObjectName("h2")
-    layout.addWidget(title)
+    root.addWidget(title)
 
+    # Kết quả (hiển thị số văn bản đã cấp)
     result_label = QLabel("")
     result_label.setObjectName("resultLabel")
     result_label.setAlignment(Qt.AlignCenter)
-    layout.addWidget(result_label)
+    root.addWidget(result_label)
 
-    form_card = QFrame()
-    form_card.setObjectName("formCard")
-    form_layout = QFormLayout(form_card)
-    form_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
-    layout.addWidget(form_card)
+    # Bọc form trong ScrollArea để không vỡ layout khi cửa sổ nhỏ
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # ⭐ cho phép giãn
+    root.addWidget(scroll, 1)  # ⭐ ưu tiên chiếm không gian
 
+    # Khung card chứa form
+    form_container = QFrame()
+    form_container.setObjectName("formCard")
+    form_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # ⭐ cho phép giãn
+    scroll.setWidget(form_container)
+
+    # Layout cho card
+    card_layout = QVBoxLayout(form_container)
+    card_layout.setContentsMargins(16, 16, 16, 16)
+    card_layout.setSpacing(12)
+
+    # Form layout
+    form_layout = QFormLayout()
+    form_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)  # ⭐ field nở ngang
+    form_layout.setRowWrapPolicy(QFormLayout.DontWrapRows)
+    form_layout.setFormAlignment(Qt.AlignTop)
+    form_layout.setLabelAlignment(Qt.AlignRight)
+    card_layout.addLayout(form_layout)
+
+    # Khởi tạo registry widget
     widgets = {}
+    if not hasattr(main_window, "form_widgets"):
+        main_window.form_widgets = {}
     main_window.form_widgets[page_id] = {'widgets': widgets, 'result_label': result_label}
 
+    # Cấu hình các trường form
     form_fields_config = [
         ('loai_van_ban', "Loại văn bản:", QComboBox),
         ('trich_yeu', "Trích yếu nội dung:", RichTextEditor),
-        ('do_mat', "Độ Mật:", QComboBox),
+        ('do_mat', "Độ Mật:", QComboBox),              # chỉ hiện nếu page_id == 'mat'
         ('lanh_dao_ky', "Lãnh đạo ký:", QComboBox),
         ('don_vi_soan_thao', "Đơn vị soạn thảo:", QComboBox),
-        ('can_bo_soan_thao', "Cán bộ soạn thảo:", QLineEdit),  # <<< MỚI
+        ('can_bo_soan_thao', "Cán bộ soạn thảo:", QLineEdit),
         ('noi_nhan', "Nơi nhận:", QLineEdit),
         ('so_luong_ban', "Số lượng bản:", QLineEdit),
         ('don_vi_luu_tru', "Đơn vị lưu trữ :", QListWidget),
     ]
 
     for name, label, widget_class in form_fields_config:
+        # Bỏ trường Độ Mật nếu không phải sổ 'mật'
         if name == 'do_mat' and page_id != 'mat':
             continue
-        widget = widget_class()
-        if isinstance(widget, RichTextEditor):
-            widget.setPlaceholderText("Nhập trích yếu nội dung văn bản. Sử dụng thanh công cụ để định dạng...")
-        elif isinstance(widget, QLineEdit):
-            widget.setPlaceholderText(f"Nhập {label.lower().replace(':', '')}...")
-        elif isinstance(widget, QListWidget):
-            widget.setSelectionMode(QListWidget.ExtendedSelection)
-            widget.setMinimumHeight(100)
-        widgets[name] = widget
-        form_layout.addRow(label, widget)
 
-    btn_layout = QHBoxLayout()
-    btn_layout.addStretch()
+        w = widget_class()
+
+        # Thiết lập kích thước & policy để chống "thu hẹp"
+        if isinstance(w, RichTextEditor):
+            w.setPlaceholderText("Nhập trích yếu nội dung. Dùng thanh công cụ để định dạng…")
+            w.setMinimumHeight(200)
+            w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        elif isinstance(w, QListWidget):
+            w.setSelectionMode(QListWidget.ExtendedSelection)
+            w.setMinimumHeight(120)
+            w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        else:  # QLineEdit / QComboBox
+            if isinstance(w, QLineEdit):
+                w.setPlaceholderText(f"Nhập {label.lower().replace(':','')}…")
+            w.setMinimumWidth(360)
+            w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        widgets[name] = w
+        form_layout.addRow(label, w)
+
+    # Hàng nút hành động
+    btn_row = QHBoxLayout()
+    btn_row.addStretch()
     submit_btn = QPushButton("  Lấy số văn bản")
     submit_btn.setObjectName("submitButton")
     submit_btn.setIcon(qta.icon("fa5s.check", color="white"))
+    submit_btn.setMinimumWidth(180)
+    submit_btn.setCursor(Qt.PointingHandCursor)
     submit_btn.clicked.connect(partial(_submit_document, main_window, page_id))
-    btn_layout.addWidget(submit_btn)
-    layout.addLayout(btn_layout)
-    layout.addStretch()
+    btn_row.addWidget(submit_btn)
+    card_layout.addLayout(btn_row)
+
+    # ❌ Không thêm spacer đáy kiểu MinimumExpanding để tránh “ăn” mất không gian của form
+
+    # Lưu reference nút
     main_window.form_widgets[page_id]['button'] = submit_btn
+
     return page
 
 
@@ -656,9 +770,7 @@ def _submit_document(main_window, page_id):
                 # ==== 2. Xử lý nơi nhận (sẽ lưu vào documents.don_vi_luu_tru_id) ====
                 noi_nhan_text = widgets['noi_nhan'].text().strip()
                 noi_nhan_id = None
-                if noi_nhan_text:
-                    cursor.execute("INSERT INTO noi_nhan (ten) VALUES (%s) RETURNING id", (noi_nhan_text,))
-                    noi_nhan_id = cursor.fetchone()[0]
+
 
                 # ==== 3. Insert vào documents ====
                 data = {
