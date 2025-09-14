@@ -1,9 +1,9 @@
 {
   "db_type": "postgresql",
-  "host": "127.0.0.1",
+  "host": "ep-rough-sun-a1ncs8pp-pooler.ap-southeast-1.aws.neon.tech",
   "port": 5432,
-  "dbname": "quanlyvanban",
-  "username": "postgres",
-  "password": "123456",
-  "sslmode":"disable"
+  "dbname": "neondb",
+  "username": "neondb_owner",
+  "password": "npg_C35PwqnEgdaL",
+  "sslmode":"require"
 }
